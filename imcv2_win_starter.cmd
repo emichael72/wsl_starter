@@ -540,6 +540,7 @@ IF NOT EXIST "%SHORTCUT_PATH%" (
 ECHO Shortcut created successfully: %SHORTCUT_PATH%
 ECHO WSL instance installed, type 'wsl -d %IMCV2_WSL_INSTANCE_NAME%' and 'dt setup' once running
 
+REM wsl -d %IMCV2_WSL_INSTANCE_NAME% -- bash -c "/home/%IMCV2_LOCAL_USERNAME%/bin/dt setup"
 
 :END
 EXIT /B 0
