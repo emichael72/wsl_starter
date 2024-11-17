@@ -24,11 +24,8 @@ IF "%~2"=="" (
 )
 
 REM Set variables based on provided arguments
-REM SET "IMCV2_INSTANCE_NAME=%~1"
-REM SET "IMCV2_WSL_BASE_PATH=%~2"
-
-SET "IMCV2_INSTANCE_NAME=IMCV2_WEB"
-SET "IMCV2_WSL_BASE_PATH="p:\sdk1"
+SET "IMCV2_INSTANCE_NAME=%~1"
+SET "IMCV2_WSL_BASE_PATH=%~2"
 
 REM Validate instance name (no spaces allowed)
 FOR /F "tokens=1,2 delims= " %%A IN ("%IMCV2_INSTANCE_NAME%") DO (
