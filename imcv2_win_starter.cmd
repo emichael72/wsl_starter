@@ -48,8 +48,8 @@ SET "IMCV2_WSL_SDK_INSTALLER=%IMCV2_WSL_BASE_PATH%\sdk_install.sh"
 
 REM Get remote resources 
 ECHO Getting resources
-curl -s -S --proxy http://proxy-dmz.intel.com:911 -o packages.txt https://raw.githubusercontent.com/emichael72/wsl_starter/main/packages.txt
-curl -s -S --proxy http://proxy-dmz.intel.com:911 -o sdk_install.sh https://raw.githubusercontent.com/emichael72/wsl_starter/main/sdk_install.sh
+curl curl -s -S --proxy %IMCV2_INTEL_PROXY_SERVER%:%IMCV2_INTEL_PROXY_PORT% -o packges.txt https://raw.githubusercontent.com/emichael72/wsl_starter/main/packges.txt
+curl curl -s -S --proxy %IMCV2_INTEL_PROXY_SERVER%:%IMCV2_INTEL_PROXY_PORT% -o sdk_install.sh https://raw.githubusercontent.com/emichael72/wsl_starter/main/sdk_install.sh
 
 REM ----------------------------------------------------------------------------
 REM
@@ -87,7 +87,7 @@ IF EXIST "%IMCV2_WSL_BARE_IMAGE_PATH%\%IMCV2_WSL_BARE_IMAGE_FILE%" (
 ) ELSE (
     REM Download the bare image file using curl
     ECHO Downloading %IMCV2_WQL_UBUNTU_URL% to %IMCV2_WSL_BARE_IMAGE_PATH%\%IMCV2_WSL_BARE_IMAGE_FILE%...
-    curl --proxy %IMCV2_INTEL_PROXY_SERVER%:%IMCV2_INTEL_PROXY_PORT% ^
+    curl curl -s -S --proxy %IMCV2_INTEL_PROXY_SERVER%:%IMCV2_INTEL_PROXY_PORT% ^
          --output "%IMCV2_WSL_BARE_IMAGE_PATH%\%IMCV2_WSL_BARE_IMAGE_FILE%" ^
          "%IMCV2_WQL_UBUNTU_URL%"
     IF ERRORLEVEL 1 (
