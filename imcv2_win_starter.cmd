@@ -48,7 +48,7 @@ SET "IMCV2_WSL_SDK_INSTALLER=%IMCV2_WSL_BASE_PATH%\sdk_install.sh"
 
 
 REM Get remote resources 
-curl -s -S --proxy $IMCV2_INTEL_PROXY_SERVER%:%IMCV2_INTEL_PROXY_PORT% -o packges.txt https://raw.githubusercontent.com/emichael72/wsl_starter/main/packges.txt
+curl --proxy $IMCV2_INTEL_PROXY_SERVER%:%IMCV2_INTEL_PROXY_PORT% -o packges.txt https://raw.githubusercontent.com/emichael72/wsl_starter/main/packges.txt
 
 REM ----------------------------------------------------------------------------
 REM
