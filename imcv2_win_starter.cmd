@@ -46,7 +46,37 @@ SET "IMCV2_LOCAL_USERNAME=%USERNAME%" REM Uses the current Windows username
 SET "IMCV2_WSL_UBUNTU_PACKAGES=%IMCV2_WSL_BASE_PATH%\packges.txt"
 SET "IMCV2_WSL_SDK_INSTALLER=%IMCV2_WSL_BASE_PATH%\sdk_install.sh"
 
-REM Get remote resources 
+
+REM ----------------------------------------------------------------------------
+REM
+REM Check if WSL is installed
+REM
+REM ----------------------------------------------------------------------------
+
+wsl --version >nul 2>&1
+IF ERRORLEVEL 1 (
+    ECHO Error: WSL is not installed.
+    ECHO Please install WSL using the following steps:
+    ECHO 1. Open PowerShell as Administrator.
+    ECHO 2. Run the command: wsl --install --no-distribution
+    ECHO 3. Restart your computer after installation.
+    EXIT /B 1
+)
+
+REM Set the default WSL instance to %IMCV2_WSL_INSTANCE_NAME%
+wsl --set-default %IMCV2_WSL_INSTANCE_NAME% >nul 2>&1
+IF ERRORLEVEL 1 (
+    ECHO Error: Failed to set %IMCV2_WSL_INSTANCE_NAME% as the default instance.
+    ECHO Ensure the instance name is correct and exists. Use: wsl --list
+    EXIT /B 1
+)
+
+REM ----------------------------------------------------------------------------
+REM
+REM Downloading additional resources
+REM
+REM ----------------------------------------------------------------------------
+
 ECHO Getting resources
 
 curl -s -S --proxy %IMCV2_INTEL_PROXY_SERVER%:%IMCV2_INTEL_PROXY_PORT% ^
