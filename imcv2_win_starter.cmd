@@ -1,5 +1,5 @@
 @ECHO OFF
-
+CLS
 REM P:\SDK\imcv2_win_starter.cmd IMCv2 P:\SDK
 REM wsl -d IMCv2_17_11_2024
 
