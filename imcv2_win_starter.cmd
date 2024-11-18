@@ -547,19 +547,27 @@ REM ----------------------------------------------------------------------------
     set "message=%~1"
     set "dots=............................................................................"
 
-    REM Calculate the number of dots required
+    REM Calculate the number of dots needed
     set /a line_width=70
-    set /a dots_needed=line_width - (1 + len(message))
-    
-    set "formatted_message=%message% "
-    for /l %%I in (1,1,%dots_needed%) do set "formatted_message=!formatted_message!."
+    for /f %%A in ('echo !message! ^| findstr /r "."') do (
+        set "msg_length=%%~A"
+    )
 
+    REM Avoid unsafe direct expansion that causes parsing issues
+    set /a dots_needed=line_width - msg_length
+    if !dots_needed! LSS 0 set /a dots_needed=0
+
+    REM Build the formatted message with dots
+    set "formatted_message=%message%!dots:~0,!dots_needed!!"
+
+    REM Print the formatted message without newline
     <nul set /p=!formatted_message!
-    
-    IF ERRORLEVEL 1 (
+
+    REM Handle the return status
+    if errorlevel 1 (
         echo ERROR
-        EXIT /B 1
-    ) ELSE (
+        exit /b 1
+    ) else (
         echo OK
     )
     GOTO :EOF
