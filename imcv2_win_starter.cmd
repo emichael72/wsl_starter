@@ -534,6 +534,9 @@ ECHO WSL instance installed, type 'wsl -d %IMCV2_WSL_INSTANCE_NAME%' and 'dt set
 
 REM wsl -d %IMCV2_WSL_INSTANCE_NAME% -- bash -c "/home/%IMCV2_LOCAL_USERNAME%/bin/dt setup"
 
+ENDLOCAL
+EXIT /B 0
+
 REM ----------------------------------------------------------------------------
 REM
 REM Function to handle return status
@@ -542,12 +545,17 @@ REM ----------------------------------------------------------------------------
 
 :HandleReturnStatus
     set "message=%~1"
-    set "dots=...................................................."
-    set /a dots_needed=60 - !message:~0,60!
-    set "output=!message!!dots:~0,%dots_needed%!"
+    set "dots=............................................................................"
 
-    <nul set /p=!output!
+    REM Calculate the number of dots required
+    set /a line_width=70
+    set /a dots_needed=line_width - (1 + len(message))
+    
+    set "formatted_message=%message% "
+    for /l %%I in (1,1,%dots_needed%) do set "formatted_message=!formatted_message!."
 
+    <nul set /p=!formatted_message!
+    
     IF ERRORLEVEL 1 (
         echo ERROR
         EXIT /B 1
@@ -555,6 +563,3 @@ REM ----------------------------------------------------------------------------
         echo OK
     )
     GOTO :EOF
-
-:END
-EXIT /B 0
