@@ -1,7 +1,6 @@
 @ECHO OFF
+SETLOCAL ENABLEDELAYEDEXPANSION
 CLS
-REM P:\SDK\imcv2_win_starter.cmd IMCv2 P:\SDK
-REM wsl -d IMCv2_17_11_2024
 
 REM ----------------------------------------------------------------------------
 REM
@@ -77,15 +76,16 @@ REM Downloading additional resources
 REM
 REM ----------------------------------------------------------------------------
 
-ECHO Getting resources
-
+SET "step_message=Downloading additional resources"
 curl -s -S --proxy %IMCV2_INTEL_PROXY_SERVER%:%IMCV2_INTEL_PROXY_PORT% ^
          --output "%IMCV2_WSL_BASE_PATH%\packges.txt" ^
-         "https://raw.githubusercontent.com/emichael72/wsl_starter/main/packges.txt"
+         "https://raw.githubusercontent.com/emichael72/wsl_starter/main/packges.txt" >nul 2>&1
 
 curl -s -S --proxy %IMCV2_INTEL_PROXY_SERVER%:%IMCV2_INTEL_PROXY_PORT% ^
          --output "%IMCV2_WSL_BASE_PATH%\sdk_install.sh" ^
-         "https://raw.githubusercontent.com/emichael72/wsl_starter/main/sdk_install.sh"
+         "https://raw.githubusercontent.com/emichael72/wsl_starter/main/sdk_install.sh" >nul 2>&1
+
+CALL :HandleReturnStatus "%step_message%"
 
 REM ----------------------------------------------------------------------------
 REM
@@ -93,29 +93,21 @@ REM Setting WSL Ubuntu instance
 REM
 REM ----------------------------------------------------------------------------
 
-REM Check if an instance with the same name already exists
-wsl --list --quiet | FINDSTR /R /C:"^%IMCV2_INSTANCE_NAME%_" >NUL
-IF NOT ERRORLEVEL 1 (
-    ECHO Error: An instance with the name "%IMCV2_INSTANCE_NAME%" already exists.
-    EXIT /B 1
-)
+SET "step_message=Checking if an instance with the same name already exists"
+wsl --list --quiet | FINDSTR /R /C:"^%IMCV2_INSTANCE_NAME%_" >nul 2>&1
+CALL :HandleReturnStatus "%step_message%"
 
-REM Create required directories if they don't exist
+SET "step_message=Create required directories if they don't exists"
 IF NOT EXIST "%IMCV2_WSL_BARE_IMAGE_PATH%" (
     mkdir "%IMCV2_WSL_BARE_IMAGE_PATH%"
-    IF ERRORLEVEL 1 (
-        ECHO Failed to create directory: %IMCV2_WSL_BARE_IMAGE_PATH%
-        EXIT /B 1
-    )
 )
+CALL :HandleReturnStatus "%step_message%"
 
 IF NOT EXIST "%IMCV2_WSL_SDK_INSTANCES_PATH%" (
     mkdir "%IMCV2_WSL_SDK_INSTANCES_PATH%"
-    IF ERRORLEVEL 1 (
-        ECHO Failed to create directory: %IMCV2_WSL_SDK_INSTANCES_PATH%
-        EXIT /B 1
-    )
 )
+CALL :HandleReturnStatus "%step_message%"
+
 
 ECHO Checking if the bare image file already exists
 IF EXIST "%IMCV2_WSL_BARE_IMAGE_PATH%\%IMCV2_WSL_BARE_IMAGE_FILE%" (
@@ -541,6 +533,28 @@ ECHO Shortcut created successfully: %SHORTCUT_PATH%
 ECHO WSL instance installed, type 'wsl -d %IMCV2_WSL_INSTANCE_NAME%' and 'dt setup' once running
 
 REM wsl -d %IMCV2_WSL_INSTANCE_NAME% -- bash -c "/home/%IMCV2_LOCAL_USERNAME%/bin/dt setup"
+
+REM ----------------------------------------------------------------------------
+REM
+REM Function to handle return status
+REM
+REM ----------------------------------------------------------------------------
+
+:HandleReturnStatus
+    set "message=%~1"
+    set "dots=...................................................."
+    set /a dots_needed=60 - !message:~0,60!
+    set "output=!message!!dots:~0,%dots_needed%!"
+
+    <nul set /p=!output!
+
+    IF ERRORLEVEL 1 (
+        echo ERROR
+        EXIT /B 1
+    ) ELSE (
+        echo OK
+    )
+    GOTO :EOF
 
 :END
 EXIT /B 0
