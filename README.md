@@ -1,7 +1,8 @@
-### Welcome to the IMCv2 SDK / WSL Installer. Follow these steps to set up your environment:
+## Welcome to the IMCv2 SDK / WSL Installer. 
+**Follow these steps to set up your environment:**
 
- 1. Open the Command Prompt on your Windows system. 
- 2. Copy the command below and paste it into your terminal:
+1. Open the Command Prompt on your Windows system.
+2. Copy the command below and paste it into your terminal:
 
 ```cmd
 
@@ -15,4 +16,4 @@ curl -s -S --proxy http://proxy-dmz.intel.com:911 https://raw.githubusercontent.
 * Ensure the proxy settings (http://proxy-dmz.intel.com:911) are correct for your environment.
 * Make sure Python is installed and added to your system's PATH.
 * Run this command only if you trust the source.
-* 
+
