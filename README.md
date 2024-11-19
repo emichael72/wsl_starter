@@ -1,9 +1,21 @@
 ### Setup Instructions.
 
+Welcome to the IMCv2 SDK / WSL Installer. Follow these steps to set up your environment:
+
+1. Open the Command Prompt on your Windows system.
+2. Copy the command below and paste it into your terminal:
+
 ```cmd
 
-curl -s -S --proxy http://proxy-dmz.intel.com:911 -o imcv2_wsl_runner.py https://raw.githubusercontent.com/emichael72/wsl_starter/main/imcv2_wsl_runner.py && python imcv2_wsl_runner.py
+curl -s -S --proxy http://proxy-dmz.intel.com:911 https://raw.githubusercontent.com/emichael72/wsl_starter/main/imcv2_wsl_runner.py | python - -n IMCv2
+
 
 ```
+3. If the Windows Terminal prompts you with "Paste anyway," choose to accept.
+4. Follow the on-screen instructions to complete the setup.
 
+Notes
+* Ensure the proxy settings (http://proxy-dmz.intel.com:911) are correct for your environment.
+* Make sure Python is installed and added to your system's PATH.
+* Run this command only if you trust the source.
 
