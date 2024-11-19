@@ -98,6 +98,24 @@ class TextType(Enum):
     BOTH = 3
 
 
+def  wsl_runner_print_logo():
+    """
+        Take a guess.
+    """
+    print("                    ██╗███╗   ███╗ ██████╗██╗   ██╗██████╗ ")
+    print("                    ██║████╗ ████║██╔════╝██║   ██║╚════██╗")
+    print("                    ██║██╔████╔██║██║     ██║   ██║ █████╔╝")
+    print("                    ██║██║╚██╔╝██║██║     ╚██╗ ██╔╝██╔═══╝ ")
+    print("                    ██║██║ ╚═╝ ██║╚██████╗ ╚████╔╝ ███████╗")
+    print("                    ╚═╝╚═╝     ╚═╝ ╚═════╝  ╚═══╝  ╚══════╝")
+    print("                                                           ")
+    print("                        ██╗    ██╗███████╗██╗              ")
+    print("                        ██║    ██║██╔════╝██║              ")
+    print("                        ██║ █╗ ██║███████╗██║              ")
+    print("                        ██║███╗██║╚════██║██║              ")
+    print("                        ╚███╔███╔╝███████║███████╗         ")
+    print("                         ╚══╝╚══╝ ╚══════╝╚══════╝         ")
+    
 def wsl_runner_show_info():
     """
         Provides detailed information about the steps performed by
@@ -113,13 +131,11 @@ def wsl_runner_show_info():
     green = "\033[32m"
     yellow = "\033[33m"
     red = "\033[31m"
-    separator = "=" * 80
-    title = f"{bold}{blue}IMCv2 WSL Installer: What to Expect{reset}"
 
+    wsl_runner_print_logo()
+    
+    separator = "=" * 80
     info = f"""
-    {separator}
-    {title.center(80)}
-    {separator}
 
     {bold}{green}1.{reset} Download a basic Ubuntu image version (e.g., ubuntu-base-24.04.1),
        known to work with WSL.
@@ -1327,7 +1343,7 @@ def wsl_runner_main() -> int:
         print("\n\n    This stage of the SDK setup is complete.")
         print("    The remaining steps will be carried out within your new WSL instance.") 
         print("    Please follow the instructions on the project's Wiki page.\n")
-        print(f"    Instance '{instance_name}' created successfully, you may close this Window.\n\n")
+        print(f"    Instance '{instance_name}' created successfully, you may close this Window.")
 
         return 0
 
