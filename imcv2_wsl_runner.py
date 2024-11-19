@@ -497,7 +497,7 @@ def wsl_runner_run_process(description: str, process: str, args: list, hidden: b
     return status
 
 
-def convert_win_to_wsl_path(windows_path):
+def wsl_runner_win_to_wsl_path(windows_path):
     """
     Convert a Windows path to its corresponding WSL path.
 
@@ -784,7 +784,7 @@ def run_install_system_packages(instance_name, username, packages_file, hidden=T
         wsl_runner_print_status(TextType.BOTH, "Empty packages file", True, 1000)
         return 0
 
-    wsl_windows_packages_file = convert_win_to_wsl_path(packages_file)
+    wsl_windows_packages_file = wsl_runner_win_to_wsl_path(packages_file)
     wsl_instance_packages_file = f"/home/{username}/downloads/packages.txt"
 
     # Define commands related to package installation
