@@ -1322,10 +1322,11 @@ def wsl_runner_main() -> int:
         # Create desktop shortcut
         wsl_runner_create_shortcut(instance_name, "IMCv2 SDK")
         
-        print ("    This stage of the SDK setup is complete.")
-        print ("    The remaining steps will be carried out within your WSL Linux instance. Good luck!")
-        print(f"    WSL instance '{instance_name}' created successfully!\n\n")
-        
+        print("    This stage of the SDK setup is complete.")
+        print("    The remaining steps will be carried out within your new WSL instance.") 
+        print("    Please follow the instructions on the project's Wiki page.\n")
+        print(f"    Instance '{instance_name}' created successfully!\n\n")
+
         return 0
 
     except StepError as step_error:
