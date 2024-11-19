@@ -154,15 +154,10 @@ def wsl_runner_show_info():
     {bold}{green}2.{reset} Create a new WSL Linux instance and import the Linux image into it.
     {bold}{green}3.{reset} Configure the instance with a user account, sudo privileges, and
        environment settings.
-    {bold}{green}4.{reset} Apply additional configurations such as time zone, proxy, and console
-       defaults, making the process seamless.
-    {bold}{green}5.{reset} Install essential packages required later by the SDK.
-
-    {bold}Lastly,{reset} the installer will create a desktop shortcut named {yellow}"IMCv2 SDK"{reset},
-    pointing to the new WSL instance.
+    {bold}{green}4.{reset} Install essential packages required later by the SDK.
 
     {bold}{red}NOTE:{reset} This prerequisites installation section may take some time to complete
-    and will use about 4GB of disk space. Please keep your PC connected to Intel
+    and will use about {bold}4GB{reset} of disk space. Please keep your PC connected to Intel
     throughout the process.
     """
     print(info)
@@ -1348,8 +1343,6 @@ def wsl_runner_main() -> int:
         packages_file = os.path.join(base_path, os.path.basename(urlparse(IMCV2_WSL_DEFAULT_PACKAGES_URL).path))
 
         wsl_runner_show_info()
-
-        print("\n    IMCv2 WSL Host Setup.\n")
         sys.stdout.write("\033[?25l")  # Hide the cursor
 
         # Run setup steps in sequence, by the end of this journey, we should have an instance up and running.
