@@ -143,7 +143,8 @@ def wsl_runner_show_info():
     green = "\033[32m"
     yellow = "\033[33m"
     red = "\033[31m"
-
+    bright_white = "\033[97m"
+    bright_blue = "\033[94m"
     wsl_runner_print_logo()
     
     separator = "=" * 80
@@ -157,8 +158,8 @@ def wsl_runner_show_info():
     {bold}{green}4.{reset} Install essential packages required later by the SDK.
 
     {bold}{red}NOTE:{reset} This prerequisites installation section may take some time to
-    complete and will use about {bold}4GB{reset} of disk space. Please keep your PC connected
-    to {blue}Intel{reset} throughout the process.
+    complete and will use about {bold}4GB{reset} of disk space. Please keep your PC
+    connected to {bright_blue}Intel{reset} throughout the process.
     """
     print(info)
 
