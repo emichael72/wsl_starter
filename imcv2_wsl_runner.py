@@ -98,23 +98,39 @@ class TextType(Enum):
     BOTH = 3
 
 
-def  wsl_runner_print_logo():
+def wsl_runner_print_logo():
     """
-        Take a guess.
+    Prints the logo with alternating bright white and bright blue colors.
     """
-    print("                    ██╗███╗   ███╗ ██████╗██╗   ██╗██████╗ ")
-    print("                    ██║████╗ ████║██╔════╝██║   ██║╚════██╗")
-    print("                    ██║██╔████╔██║██║     ██║   ██║ █████╔╝")
-    print("                    ██║██║╚██╔╝██║██║     ╚██╗ ██╔╝██╔═══╝ ")
-    print("                    ██║██║ ╚═╝ ██║╚██████╗ ╚████╔╝ ███████╗")
-    print("                    ╚═╝╚═╝     ╚═╝ ╚═════╝  ╚═══╝  ╚══════╝")
-    print("                                                           ")
-    print("                        ██╗    ██╗███████╗██╗              ")
-    print("                        ██║    ██║██╔════╝██║              ")
-    print("                        ██║ █╗ ██║███████╗██║              ")
-    print("                        ██║███╗██║╚════██║██║              ")
-    print("                        ╚███╔███╔╝███████║███████╗         ")
-    print("                         ╚══╝╚══╝ ╚══════╝╚══════╝         ")
+    # ANSI escape codes for colors
+    bright_white = "\033[97m"
+    bright_blue = "\033[94m"
+    reset = "\033[0m"
+
+    lines = [
+        "                    ██╗███╗   ███╗ ██████╗██╗   ██╗██████╗ ",
+        "                    ██║████╗ ████║██╔════╝██║   ██║╚════██╗",
+        "                    ██║██╔████╔██║██║     ██║   ██║ █████╔╝",
+        "                    ██║██║╚██╔╝██║██║     ╚██╗ ██╔╝██╔═══╝ ",
+        "                    ██║██║ ╚═╝ ██║╚██████╗ ╚████╔╝ ███████╗",
+        "                    ╚═╝╚═╝     ╚═╝ ╚═════╝  ╚═══╝  ╚══════╝",
+        "                                                           ",
+        "                          ██╗    ██╗███████╗██╗            ",
+        "                          ██║    ██║██╔════╝██║            ",
+        "                          ██║ █╗ ██║███████╗██║            ",
+        "                          ██║███╗██║╚════██║██║            ",
+        "                          ╚███╔███╔╝███████║███████╗       ",
+        "                           ╚══╝╚══╝ ╚══════╝╚══════╝       "
+    ]
+
+    # Print each line with alternating colors
+    for i, line in enumerate(lines):
+        color = bright_white if i % 2 == 0 else bright_blue
+        print(f"{color}{line}{reset}")
+
+# Call the function
+wsl_runner_print_logo()
+
     
 def wsl_runner_show_info():
     """
@@ -968,11 +984,27 @@ def run_kerberos_steps(instance_name: str, hidden: bool = True, new_line: bool =
                                   ignore_errors=ignore_errors) != 0:
             raise StepError(f"Failed during step: {description}")
 
-    # Print success message
-    wsl_runner_print_status(TextType.BOTH, "Setting Kerberos defaults", True, 1000)
 
 
 def run_time_zone_steps(instance_name, hidden=True, new_line=False):
+    """
+    Configures timezone and console settings for a specified WSL instance.
+
+    This function automates a series of steps to:
+    1. Pre-seed timezone data (tzdata) for the Israel timezone in the WSL instance.
+    2. Set the system timezone to Asia/Jerusalem.
+    3. Ensure the `tzdata` package is installed.
+    4. Reconfigure `tzdata` non-interactively.
+    5. Configure the console to use Hebrew character sets and fonts.
+    6. Install the `console-setup` package in a non-interactive mode.
+    7. Restart the WSL session to apply changes.
+
+    Parameters:
+        instance_name (str): The name of the WSL instance to configure.
+        hidden (bool, optional): Whether to hide the command output. Default is True.
+        new_line (bool, optional): Whether to add a new line after each step's output. Default is False.
+    """
+    
     steps_commands = [
         # Pre-seed tzdata configuration for Israel timezone
         ("Pre-seed tzdata for Israel Area",
@@ -1031,7 +1063,6 @@ def run_time_zone_steps(instance_name, hidden=True, new_line=False):
                                   ignore_errors=ignore_errors) != 0:
             raise StepError("Failed to complete step")
 
-    wsl_runner_print_status(TextType.BOTH, "Setting time zone defaults", True, 1000)
 
 
 def run_user_creation_steps(instance_name: str, username: str, password: str, hidden: bool = True,
