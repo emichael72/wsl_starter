@@ -1322,10 +1322,10 @@ def wsl_runner_main() -> int:
         # Create desktop shortcut
         wsl_runner_create_shortcut(instance_name, "IMCv2 SDK")
         
-        print("    This stage of the SDK setup is complete.")
+        print("\n\n    This stage of the SDK setup is complete.")
         print("    The remaining steps will be carried out within your new WSL instance.") 
         print("    Please follow the instructions on the project's Wiki page.\n")
-        print(f"    Instance '{instance_name}' created successfully!\n\n")
+        print(f"    Instance '{instance_name}' created successfully, you may close this Window.\n\n")
 
         return 0
 
