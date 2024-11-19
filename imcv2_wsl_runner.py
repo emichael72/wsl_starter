@@ -3,7 +3,7 @@
 """
 Script:       imcv2_wsl_runner.py
 Author:       Intel IMCv2 Team
-Version:      1.0.0
+Version:      1.0.1
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -106,7 +106,7 @@ def wsl_runner_show_info():
         installing necessary packages for the SDK. The message is formatted to
         be easily readable within an 80-character width terminal.
     """
-    os.system('cls')
+    
     reset = "\033[0m"
     bold = "\033[1m"
     blue = "\033[34m"
@@ -1253,7 +1253,9 @@ def wsl_runner_main() -> int:
     Returns:
         int: Exit code (0 for success, 1 for failure).
     """
-        
+
+    os.system('cls')
+    
     parser = argparse.ArgumentParser(description="IMCV2 WSL Runner")
     parser.add_argument("-n", "--name",
                         help="Name of the WSL instance to create (e.g., 'IMCV2').")
