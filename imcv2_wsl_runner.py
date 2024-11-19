@@ -1319,10 +1319,13 @@ def wsl_runner_main() -> int:
         run_install_pyenv(instance_name, username, proxy_server)
         run_post_install_steps(instance_name)
 
-        print(f"\nWSL instance '{instance_name}' created successfully!")
-        if wsl_runner_create_shortcut(instance_name, "IMCv2 SDK") == 0:
-            print(f"\nShortcut created successfully!\nYou can launch your WSL instance using the desktop shortcut"
-                  f" or via Windows Terminal.")
+        # Create desktop shortcut
+        wsl_runner_create_shortcut(instance_name, "IMCv2 SDK")
+        
+        print ("    This stage of the SDK setup is complete.")
+        print ("    The remaining steps will be carried out within your WSL Linux instance. Good luck!")
+        print(f"    WSL instance '{instance_name}' created successfully!\n\n")
+        
         return 0
 
     except StepError as step_error:
