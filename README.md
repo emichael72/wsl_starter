@@ -1,9 +1,9 @@
 ### Setup Instructions.
 
-Welcome to the IMCv2 SDK / WSL Installer. Follow these steps to set up your environment:
+##Welcome to the IMCv2 SDK / WSL Installer. Follow these steps to set up your environment:
 
-1. Open the Command Prompt on your Windows system.
-2. Copy the command below and paste it into your terminal:
+##1. Open the Command Prompt on your Windows system.
+##2. Copy the command below and paste it into your terminal:
 
 ```cmd
 
