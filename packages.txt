@@ -763,3 +763,5 @@ zlib1g:amd64
 zlib1g-dev:amd64
 zsh
 zsh-common
+xterm
+
