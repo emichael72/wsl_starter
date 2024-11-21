@@ -1,0 +1,19 @@
+[http "https://github.com"]
+	proxy = {proxy_server_port}
+[http "https://lfs.github.com"]
+	proxy = {proxy_server_port}
+[http "https://github-cloud.s3.amazonaws.com"]
+	proxy = {proxy_server_port}
+[http "https://github-cloud.githubusercontent.com"]
+	proxy = {proxy_server_port}
+[user]
+	email = {corp_email}
+	name = {corp_name]
+[fetch]
+	prune = true
+[credential "https://github.com"]
+	helper = 
+[core]
+	editor = nano
+[pull]
+	rebase = true
