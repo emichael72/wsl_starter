@@ -169,7 +169,7 @@ def wsl_runner_show_info():
     wsl_runner_print_logo()
 
     info = f"""
-    Welcome to the {bright_white}IMCv2 SDK-WSL{reset} Image Creator!
+    Welcome to the {bright_white}IMCv2 SDK-WSL{reset} v{IMCV2_SCRIPT_VERSION} Image Creator!
     We're setting up your environment—here's what's next:
     
     {bold}{green}1.{reset} Download a compatible Ubuntu image (ubuntu-base-24.04.1).
