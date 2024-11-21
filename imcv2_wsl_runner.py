@@ -1428,8 +1428,8 @@ def wsl_runner_main() -> int:
         wsl_runner_create_shortcut(instance_name, "IMCv2 SDK")
 
         # Enter the instance, setup will continue for there
+        print(f"\n    Attempting to start '{instance_name}'. If it fails to start,\n    please close this window and start it manually through the Windows Terminal menu.\n")
         wsl_runner_start_wsl_shell(instance_name)
-
         return 0
 
     except StepError as step_error:
