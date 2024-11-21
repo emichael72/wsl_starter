@@ -208,7 +208,7 @@ runner_set_auto_start() {
 	local header="# IMCv2 Auto start 'dt' and IMCv2 SDK install."
 	local auto_start_script="
 if sdk_runner.sh runner_ensure_dt; then
-    sdk_runner.sh runner_install_sdk uninstall /home/\$USER/projects/sdk
+    sdk_runner.sh runner_install_sdk install /home/\$USER/projects/sdk
 fi
 "
 
