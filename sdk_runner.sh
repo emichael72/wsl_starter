@@ -135,7 +135,6 @@ runner_install_sdk() {
 		if [[ -d "$destination_path" ]]; then
 			rm -rf "$destination_path" >/dev/null 2>&1
 			if [[ $? -eq 0 ]]; then
-				echo "Successfully uninstalled from $destination_path."
 				return 0
 			else
 				echo "Error: Failed to uninstall from $destination_path."
