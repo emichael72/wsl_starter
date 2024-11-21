@@ -3,7 +3,7 @@
 """
 Script:       imcv2_wsl_runner.py
 Author:       Intel IMCv2 Team
-Version:      1.0.1
+Version:      1.0.2
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -39,12 +39,11 @@ Notes:
 """
 
 import os
-def check_os():
-    if sys.platform != "win32":
-        raise EnvironmentError("This script is designed to run only on Windows.")
-# Perform the OS check before anything else.
-check_os()
 
+try:
+    import winreg
+except ImportError:
+    raise EnvironmentError("This script must be run on Windows.")
 import argparse
 import itertools
 import re
@@ -68,7 +67,7 @@ MCV2_WSL_DEFAULT_PASSWORD = "intel@1234"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSLRunner"
-IMCV2_SCRIPT_VERSION = "1.0.0"
+IMCV2_SCRIPT_VERSION = "1.0.2"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Host Installer"
 
 # Spinning characters for progress indication
@@ -102,43 +101,6 @@ class TextType(Enum):
     PREFIX = 1
     SUFFIX = 2
     BOTH = 3
-
-import os
-import ctypes
-
-def wsl_runnerset_terminal_size(width, height):
-    """Resize the terminal window."""
-    # Get the handle for the standard output (stdout)
-    handle = ctypes.windll.kernel32.GetStdHandle(-11)  # -11 is STD_OUTPUT_HANDLE
-
-    # Define the structure for the terminal size
-    class CONSOLE_SCREEN_BUFFER_INFO(ctypes.Structure):
-        _fields_ = [
-            ("dwSize", ctypes.wintypes._COORD),
-            ("dwCursorPosition", ctypes.wintypes._COORD),
-            ("wAttributes", ctypes.wintypes.WORD),
-            ("srWindow", ctypes.wintypes.SMALL_RECT),
-            ("dwMaximumWindowSize", ctypes.wintypes._COORD),
-        ]
-
-    class _COORD(ctypes.Structure):
-        _fields_ = [("X", ctypes.c_short), ("Y", ctypes.c_short)]
-
-    class SMALL_RECT(ctypes.Structure):
-        _fields_ = [("Left", ctypes.c_short), ("Top", ctypes.c_short),
-                    ("Right", ctypes.c_short), ("Bottom", ctypes.c_short)]
-
-    # Update the terminal screen buffer
-    size = _COORD(width, height)
-    srWindow = SMALL_RECT(0, 0, width - 1, height - 1)
-    success = ctypes.windll.kernel32.SetConsoleScreenBufferSize(handle, size)
-    if not success:
-        raise OSError("Failed to set screen buffer size")
-
-    # Update the terminal window size
-    success = ctypes.windll.kernel32.SetConsoleWindowInfo(handle, True, ctypes.byref(srWindow))
-    if not success:
-        raise OSError("Failed to set console window info")
 
 
 def wsl_runner_get_office_user_identity():
@@ -175,32 +137,20 @@ def wsl_runner_print_logo():
     """
     Prints the logo with alternating bright white and bright blue colors.
     """
-    # ANSI escape codes for colors
-    bright_white = "\033[97m"
-    bright_blue = "\033[94m"
+
+    blue = "\033[94m"
+    white = "\033[97m"
     reset = "\033[0m"
+    sys.stdout.write(f"\n{reset}")
+    sys.stdout.write(f"{blue}     ██╗███╗   ███╗ ██████╗██╗   ██╗██████╗{reset}\n")
+    sys.stdout.write(f"{white}     ██║████╗ ████║██╔════╝██║   ██║╚════██╗{reset}\n")
+    sys.stdout.write(f"{blue}     ██║██╔████╔██║██║     ██║   ██║ █████╔╝{reset}\n")
+    sys.stdout.write(f"{white}     ██║██║╚██╔╝██║██║     ╚██╗ ██╔╝██╔═══╝{reset}\n")
+    sys.stdout.write(f"{blue}     ██║██║ ╚═╝ ██║╚██████╗ ╚████╔╝ ███████╗{reset}\n")
+    sys.stdout.write(f"{white}     ╚═╝╚═╝     ╚═╝ ╚═════╝  ╚═══╝  ╚══════╝{reset}\n")
+    sys.stdout.flush()
 
-    lines = [
-        "                                                           ", 
-        "                    ██╗███╗   ███╗ ██████╗         ██████╗ ",
-        "                    ██║████╗ ████║██╔════╝██║   ██║╚════██╗",
-        "                    ██║██╔████╔██║██║     ██║   ██║ █████╔╝",
-        "                    ██║██║╚██╔╝██║██║     ╚██╗ ██╔╝██╔═══╝ ",
-        "                    ██║██║ ╚═╝ ██║╚██████╗ ╚████╔╝ ███████╗",
-        "                    ╚═╝╚═╝     ╚═╝ ╚═════╝  ╚═══╝  ╚══════╝",
-        "                          ██╗    ██╗███████╗██╗            ",
-        "                          ██║    ██║██╔════╝██║            ",
-        "                          ██║███╗██║╚════██║██║            ",
-        "                          ╚███╔███╔╝███████║███████╗       ",
-        "                           ╚══╝╚══╝ ╚══════╝╚══════╝       "
-    ]
 
-    # Print each line with alternating colors
-    for i, line in enumerate(lines):
-        color = bright_white if i % 2 == 0 else bright_blue
-        print(f"{color}{line}{reset}")
-
-    
 def wsl_runner_show_info():
     """
         Provides detailed information about the steps performed by
@@ -209,32 +159,27 @@ def wsl_runner_show_info():
         installing necessary packages for the SDK. The message is formatted to
         be easily readable within an 80-character width terminal.
     """
-    
+
     reset = "\033[0m"
     bold = "\033[1m"
-    blue = "\033[34m"
     green = "\033[32m"
-    yellow = "\033[33m"
-    red = "\033[31m"
-    bright_white = "\033[97m"
     bright_blue = "\033[94m"
+    bright_white = "\033[97m"
+
     wsl_runner_print_logo()
-    
-    separator = "=" * 80
+
     info = f"""
-
-    {bold}{green}1.{reset} Download a basic Ubuntu image version (e.g., ubuntu-base-24.04.1),
-       known to work with WSL.
-    {bold}{green}2.{reset} Create a new WSL Linux instance and import the Linux image into it.
-    {bold}{green}3.{reset} Configure the instance with a user account, sudo privileges, and
-       environment settings.
-    {bold}{green}4.{reset} Install essential packages required later by the SDK.
-
-    {bold}{red}NOTE:{reset} This prerequisites installation section may take some time to
-    complete and will use about {bold}4GB{reset} of disk space. Please keep your PC
-    connected to {bright_blue}Intel{reset} throughout the process.
+    Welcome to the {bright_white}IMCv2 SDK-WSL{reset} Image Creator!
+    We're setting up your environment—here's what's next:
+    
+    {bold}{green}1.{reset} Download a compatible Ubuntu image (ubuntu-base-24.04.1).
+    {bold}{green}2.{reset} Create and import a new WSL Linux instance.
+    {bold}{green}3.{reset} Configure environment settings.
+    {bold}{green}4.{reset} Install essential packages for the {bright_white}IMCv2{reset} SDK.
+    
+    ⚠️ Please keep your PC connected to {bright_blue}Intel{reset} throughout.
     """
-    print(info)
+    print(f"{info}")
 
 
 def wsl_runner_get_desktop_path() -> str:
@@ -262,6 +207,21 @@ def wsl_runner_get_desktop_path() -> str:
         return desktop_path
     except Exception as e:
         raise FileNotFoundError(f"Failed to retrieve desktop path: {e}")
+
+
+def wsl_runner_start_wsl_shell(distribution=None):
+    try:
+        # Prepare the base command
+        command = ["wsl"]
+        if distribution:
+            command.extend(["-d", distribution])
+
+        # Start the interactive shell
+        subprocess.run(command)
+    except FileNotFoundError:
+        print("Error: WSL is not installed or not in the system PATH.")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
 
 
 def wsl_runner_spinner_thread():
@@ -468,7 +428,7 @@ def wsl_runner_print_status(
         text_type: TextType,
         description: Optional[str],
         new_line: bool = False,
-        return_value: int = 0
+        ret_val: int = 0
 ):
     """
     Prints the status message to the console in a formatted manner with color codes.
@@ -477,7 +437,7 @@ def wsl_runner_print_status(
         text_type (TextType): PREFIX, SUFFIX, or BOTH.
         description (str, None): The message to display. If None, it defaults to an empty string.
         new_line (bool): If True, prints a new line after the status; otherwise overwrites the same line.
-        return_value (int): The status code to display. 0 = OK, 124 = TIMEOUT, others = ERROR.
+        ret_val (int): The status code to display. 0 = OK, 124 = TIMEOUT, others = ERROR.
     """
 
     if text_type not in TextType:
@@ -509,15 +469,15 @@ def wsl_runner_print_status(
         # Stop spinner
         wsl_runner_set_spinner(False)
 
-        if return_value == 0:
+        if ret_val == 0:
             pass
-        elif return_value == 1000:  # Special code for step completed.
+        elif ret_val == 1000:  # Special code for step completed.
             sys.stdout.write(f"{green}OK{reset}")
         else:
-            if return_value == 124:
+            if ret_val == 124:
                 sys.stdout.write(f"{bright_blue}Timeout{reset}")
             else:
-                sys.stdout.write(f"{red}Error({return_value}){reset}")
+                sys.stdout.write(f"{red}Error({ret_val}){reset}")
 
         sys.stdout.flush()
         time.sleep(0.3)  # Small delay for visual clarity
@@ -631,7 +591,7 @@ def wsl_runner_create_shortcut(instance_name: str, shortcut_name: str) -> int:
         if os.path.exists(shortcut_path):
             os.remove(shortcut_path)
 
-         # Define the command to launch the WSL instance
+        # Define the command to launch the WSL instance
         target = "C:\\Windows\\System32\\wsl.exe"  # Path to wsl.exe
         arguments = f"-d {instance_name}"  # Arguments for the WSL instance
 
@@ -660,12 +620,14 @@ def wsl_runner_create_shortcut(instance_name: str, shortcut_name: str) -> int:
         return 1
 
 
-def run_post_install_steps(instance_name: str, hidden: bool = True, new_line: bool = False):
+def run_post_install_steps(instance_name: str, username, proxy_server, hidden: bool = True, new_line: bool = False):
     """
     Configures the WSL instance post-installation by setting it as the default instance.
 
     Args:
         instance_name (str): Name of the WSL instance to set as the default.
+        username: (str): WSL username
+        proxy_server (str): HTTP/HTTPS proxy server address to set in .bashrc.
         hidden (bool): If True, suppresses command output during execution.
         new_line (bool): If True, displays status messages on a new line.
 
@@ -675,7 +637,36 @@ def run_post_install_steps(instance_name: str, hidden: bool = True, new_line: bo
     steps_commands = [
         # Set the WSL instance as the default
         ("Setting the WSL instance as the default",
-         "wsl", ["--set-default", instance_name])
+         "wsl", ["--set-default", instance_name]),
+
+        # Download git configuration template via proxy
+        ("Downloading git configuration template",
+         "wsl", ["-d", instance_name, "--", "bash", "-c",
+                 f"curl -sS --proxy {proxy_server} "
+                 f"-o /home/{username}/downloads/git_config.template "
+                 "https://raw.githubusercontent.com/emichael72/wsl_starter/main/git_config.template"]),
+
+        # Download SDK runner script via proxy
+        ("Downloading SDK runner script",
+         "wsl", ["-d", instance_name, "--", "bash", "-c",
+                 f"curl -sS --proxy {proxy_server} "
+                 f"-o /home/{username}/bin/sdk_runner.sh "
+                 "https://raw.githubusercontent.com/emichael72/wsl_starter/main/sdk_runner.sh"]),
+
+        # Make the SDK Runner executable
+        ("Make the SDK runner script executable",
+         "wsl", ["-d", instance_name, "--", "bash", "-c",
+                 f"chmod +x /home/{username}/bin/sdk_runner.sh"]),
+
+        # Use the SDK Runner to patch bashrc
+        ("Make the SDK runner script executable",
+         "wsl", ["-d", instance_name, "--", "bash", "-c",
+                 f"/home/{username}/bin/sdk_runner.sh runner_set_auto_start 1"]),
+
+        # Terminate WSL session
+        ("Restarting session for changes to take effect",
+         "wsl", ["--terminate", instance_name]),
+
     ]
 
     # Execute the command and handle errors
@@ -704,19 +695,19 @@ def run_install_pyenv(instance_name, username, proxy_server, hidden=True, new_li
     # Define commands related to package installation
     steps_commands = [
 
-        # Step 1: Download pyenv installer
+        # Download pyenv installer
         ("Download 'pyenv' installer",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  f"curl -s -S -x {proxy_server} -L "
                  f"https://raw.githubusercontent.com/pyenv/pyenv-installer/master/bin/pyenv-installer "
                  f"-o /home/{username}/downloads/pyenv-installer"]),
 
-        # Step 2: Make the installer executable
+        # Make the installer executable
         ("Make 'pyenv' installer executable",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  f"chmod +x /home/{username}/downloads/pyenv-installer"]),
 
-        # Step 3: Clean up any previous pyenv installation
+        #  Clean up any previous pyenv installation
         ("Clean up any previous 'pyenv' installation",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  f"rm -rf /home/{username}/.pyenv"]),
@@ -1050,7 +1041,6 @@ def run_kerberos_steps(instance_name: str, hidden: bool = True, new_line: bool =
             raise StepError(f"Failed during step: {description}")
 
 
-
 def run_time_zone_steps(instance_name, hidden=True, new_line=False):
     """
     Configures timezone and console settings for a specified WSL instance.
@@ -1069,7 +1059,7 @@ def run_time_zone_steps(instance_name, hidden=True, new_line=False):
         hidden (bool, optional): Whether to hide the command output. Default is True.
         new_line (bool, optional): Whether to add a new line after each step's output. Default is False.
     """
-    
+
     steps_commands = [
         # Pre-seed tzdata configuration for Israel timezone
         ("Pre-seed tzdata for Israel Area",
@@ -1127,7 +1117,6 @@ def run_time_zone_steps(instance_name, hidden=True, new_line=False):
         if wsl_runner_run_process(description, process, args, hidden=hidden, new_line=new_line,
                                   ignore_errors=ignore_errors) != 0:
             raise StepError("Failed to complete step")
-
 
 
 def run_user_creation_steps(instance_name: str, username: str, password: str, hidden: bool = True,
@@ -1367,10 +1356,12 @@ def wsl_runner_main() -> int:
     """
 
     os.system('cls')
-    
+
     parser = argparse.ArgumentParser(description="IMCV2 WSL Runner")
     parser.add_argument("-n", "--name",
                         help="Name of the WSL instance to create (e.g., 'IMCV2').")
+    parser.add_argument("-l", "--last_steps", action='store_true',
+                        help="Execute only the last steps.")
     parser.add_argument("-b", "--base_path",
                         help=f"Specify alternate base local path to use instead of "
                              f"'{IMCV2_WSL_DEFAULT_BASE_PATH}'.")
@@ -1420,24 +1411,24 @@ def wsl_runner_main() -> int:
         sys.stdout.write("\033[?25l")  # Hide the cursor
 
         # Run setup steps in sequence, by the end of this journey, we should have an instance up and running.
-        run_pre_prerequisites_steps(base_path, instance_path, bare_linux_image_path, ubuntu_url, proxy_server)
-        run_initial_setup_steps(instance_name, instance_path, bare_linux_image_file)
-        run_user_creation_steps(instance_name, username, password)
-        run_time_zone_steps(instance_name)
-        run_kerberos_steps(instance_name)
-        run_user_shell_steps(instance_name, username, proxy_server)
-        run_install_system_packages(instance_name, username, packages_file)
-        run_install_user_packages(instance_name, username, proxy_server)
-        run_install_pyenv(instance_name, username, proxy_server)
-        run_post_install_steps(instance_name)
+        if not args.last_steps:
+            run_pre_prerequisites_steps(base_path, instance_path, bare_linux_image_path, ubuntu_url, proxy_server)
+            run_initial_setup_steps(instance_name, instance_path, bare_linux_image_file)
+            run_user_creation_steps(instance_name, username, password)
+            run_time_zone_steps(instance_name)
+            run_kerberos_steps(instance_name)
+            run_user_shell_steps(instance_name, username, proxy_server)
+            run_install_system_packages(instance_name, username, packages_file)
+            run_install_user_packages(instance_name, username, proxy_server)
+            run_install_pyenv(instance_name, username, proxy_server)
+
+        run_post_install_steps(instance_name, username, proxy_server)
 
         # Create desktop shortcut
         wsl_runner_create_shortcut(instance_name, "IMCv2 SDK")
-        
-        print("\n\n    This stage of the SDK setup is complete.")
-        print("    The remaining steps will be carried out within your new WSL instance.") 
-        print("    Please follow the instructions on the project's Wiki page.\n")
-        print(f"    Instance '{instance_name}' created successfully, you may close this Window.")
+
+        # Enter the instance, setup will continue for there
+        wsl_runner_start_wsl_shell(instance_name)
 
         return 0
 
@@ -1455,7 +1446,6 @@ def wsl_runner_main() -> int:
 
 
 if __name__ == "__main__":
-  
     return_value = wsl_runner_main()
     print("\033[?25h")  # Restore the cursor
     sys.exit()
