@@ -3,7 +3,7 @@
 """
 Script:       imcv2_wsl_runner.py
 Author:       Intel IMCv2 Team
-Version:      1.0.2
+Version:      1.0.4
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -67,7 +67,7 @@ MCV2_WSL_DEFAULT_PASSWORD = "intel@1234"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSLRunner"
-IMCV2_SCRIPT_VERSION = "1.0.2"
+IMCV2_SCRIPT_VERSION = "1.0.4"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Host Installer"
 
 # Spinning characters for progress indication
@@ -1184,24 +1184,28 @@ def run_user_creation_steps(instance_name: str, username: str, password: str, hi
                  f"echo 'cd /home/{username}' >> /home/{username}/.bashrc"]),
 
         # Add essential aliases
-        ("Adding essential aliases to .bashrc",
-         "wsl", [
-             "-d", instance_name,
-             "--",
-             "bash", "-c",
-             (
-                 # Alias for shutting down the WSL instance
-                 f"echo -e '\\nalias shutdown=\"wsl.exe --terminate \\$WSL_DISTRO_NAME\"' "
-                 f">> /home/{username}/.bashrc && "
-
-                 # Alias for rebooting the WSL instance
-                 f"echo -e 'alias reboot=\"wt.exe -w 0 -p \\\'{instance_name}\\\' -- wsl.exe && "
-                 f"wsl.exe --terminate \\$WSL_DISTRO_NAME && wsl.exe\"' >> /home/{username}/.bashrc && "
-
-                 # Alias for opening the current directory in Windows Explorer
-                 f"echo -e 'alias start=\"explorer.exe .\"' >> /home/{username}/.bashrc"
-             )
-         ]),
+        (
+            "Adding essential aliases to .bashrc",
+            "wsl", [
+                "-d", instance_name,
+                "--",
+                "bash", "-c",
+                (
+                    # Alias for shutting down the WSL instance
+                    f"echo -e '\\nalias shutdown=\"wsl.exe --terminate \\$WSL_DISTRO_NAME\"' "
+                    f">> /home/{username}/.bashrc && "
+        
+                    # Alias for rebooting the WSL instance
+                    f"echo -e '\\nalias reboot=\"wt.exe -w 0 -p {instance_name} -- wsl.exe && "
+                    f"wsl.exe --terminate \\$WSL_DISTRO_NAME && wsl.exe\"' "
+                    f">> /home/{username}/.bashrc && "
+        
+                    # Alias for opening the current directory in Windows Explorer
+                    f"echo -e '\\nalias start=\"explorer.exe .\"' "
+                    f">> /home/{username}/.bashrc"
+                )
+            ]
+        ),
 
         # Add custom greeting message to .bashrc
         ("Adding custom greeting message to .bashrc",
