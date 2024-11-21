@@ -176,11 +176,11 @@ runner_install_sdk() {
 		local exit_code=$?
 
 		if [[ $exit_code -eq 0 ]]; then
-  			# Remove auto start in bashrc
+			# Remove auto start in bashrc
 			runner_set_auto_start 0
 		else
 			echo "Error: SDK installation failed with exit code $exit_code."
-   			echo "This instance will keep trying. Please reopen this window to try again."
+			echo "This instance will keep trying. Please reopen this window to try again."
 		fi
 		return $exit_code
 		;;
@@ -240,6 +240,82 @@ fi
 		sed -i "/$header/,/fi/d" "$bashrc_path"
 		return 0
 	fi
+}
+
+#
+# @brief Manual local Simics installtiopn.e.
+# @return 0 if successful, 1 otherwise.
+#
+
+runner_get_simics() {
+
+	local tools_dir="$IMCV2_EXTERNS_BASE/tools"
+	local ci_tools_dir="$tools_dir/CI_Tools/wsl_support"
+	local download_path="/home/$USER/downloads"
+	local installer_name="simics_installer.tar.gz"
+	local extract_path="/mnt/ci_tools/intel-simics-package-manager"
+	local simics_folder_name="intel-simics-package-manager-1.7.0-intel-internal"
+	local archive="$download_path/$installer_name"
+
+	{
+		# Step 1: Go to tools directory
+		cd "$tools_dir" || {
+			echo "Error: Cannot access tools directory"
+			return 1
+		}
+
+		# Step 2: Switch to em_wsl_simics branch
+		git checkout em_wsl_simics >/dev/null 2>&1 || {
+			echo "Error: Failed to switch branch"
+			return 1
+		}
+
+		# Step 3: Pull latest changes
+		git pull >/dev/null 2>&1 || {
+			echo "Error: Failed to pull latest changes"
+			return 1
+		}
+
+		# Step 4: Check for the required tools directory
+		if [[ ! -d "$ci_tools_dir" ]]; then
+			echo "Error: $ci_tools_dir not found"
+			return 1
+		fi
+
+		# Step 5: Assemble the parts
+		cat "$ci_tools_dir"/part* >"$archive" 2>/dev/null || {
+			echo "Error: Failed to assemble installer"
+			return 1
+		}
+
+		# Step 6: Extract the archive
+		cd "$download_path" || {
+			echo "Error: Cannot access download directory"
+			return 1
+		}
+		tar -xzf "$installer_name" >/dev/null 2>&1 || {
+			echo "Error: Failed to extract installer"
+			return 1
+		}
+
+		# Step 7: Create installation path and move files
+		sudo mkdir -p "$extract_path" || {
+			echo "Error: Failed to create installation directory"
+			return 1
+		}
+		sudo mv "$simics_folder_name" "$extract_path" >/dev/null 2>&1 || {
+			echo "Error: Failed to move files"
+			return 1
+		}
+
+		# Step 8: Change ownership of ci_tools
+		sudo chown -R "$USER" /mnt/ci_tools >/dev/null 2>&1 || {
+			echo "Error: Failed to change ownership"
+			return 1
+		}
+	} 2>/dev/null
+
+	return 0
 }
 
 # Ensure the script can invoke functions by name
