@@ -210,9 +210,16 @@ def wsl_runner_get_desktop_path() -> str:
 
 
 def wsl_runner_start_wsl_shell(distribution=None):
+    """
+    Launches an interactive WSL shell. Optionally, specify a distribution.
+
+    Args:
+        distribution (str): The name of the WSL distribution to launch (e.g., 'Ubuntu-20.04').
+                            If None, launches the default WSL distribution.
+    """
     try:
         # Prepare the base command
-        command = ["wsl"]
+        command = ["cmd", "/c", "wsl.exe"]
         if distribution:
             command.extend(["-d", distribution])
 
@@ -1178,12 +1185,23 @@ def run_user_creation_steps(instance_name: str, username: str, password: str, hi
 
         # Add essential aliases
         ("Adding essential aliases to .bashrc",
-         "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 f"echo -e '\\nalias shutdown=\"wsl.exe --terminate \\$WSL_DISTRO_NAME\"'"
-                 f" >> /home/{username}/.bashrc && "
-                 f"echo -e 'alias reboot=\"wt.exe --profile \\\"Ubuntu\\\" && wsl.exe --terminate"
-                 f" \\$WSL_DISTRO_NAME && wsl.exe\"' >> /home/{username}/.bashrc && "
-                 f"echo -e 'alias start=\"explorer.exe .\"' >> /home/{username}/.bashrc"]),
+         "wsl", [
+             "-d", instance_name,
+             "--",
+             "bash", "-c",
+             (
+                 # Alias for shutting down the WSL instance
+                 f"echo -e '\\nalias shutdown=\"wsl.exe --terminate \\$WSL_DISTRO_NAME\"' "
+                 f">> /home/{username}/.bashrc && "
+
+                 # Alias for rebooting the WSL instance
+                 f"echo -e 'alias reboot=\"wt.exe -w 0 -p \\\'{instance_name}\\\' -- wsl.exe && "
+                 f"wsl.exe --terminate \\$WSL_DISTRO_NAME && wsl.exe\"' >> /home/{username}/.bashrc && "
+
+                 # Alias for opening the current directory in Windows Explorer
+                 f"echo -e 'alias start=\"explorer.exe .\"' >> /home/{username}/.bashrc"
+             )
+         ]),
 
         # Add custom greeting message to .bashrc
         ("Adding custom greeting message to .bashrc",
@@ -1427,9 +1445,9 @@ def wsl_runner_main() -> int:
         # Create desktop shortcut
         wsl_runner_create_shortcut(instance_name, "IMCv2 SDK")
 
-        # Enter the instance, setup will continue for there
-        print(f"\n    Attempting to start '{instance_name}'. If it fails to start,\n    please close this window and start it manually through the Windows Terminal menu.\n")
-        wsl_runner_start_wsl_shell(instance_name)
+        # Start WSL instance, setup will continue for there.
+        wsl_runner_start_wsl_shell()
+
         return 0
 
     except StepError as step_error:
