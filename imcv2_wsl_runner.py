@@ -97,6 +97,43 @@ class TextType(Enum):
     SUFFIX = 2
     BOTH = 3
 
+import os
+import ctypes
+
+def wsl_runnerset_terminal_size(width, height):
+    """Resize the terminal window."""
+    # Get the handle for the standard output (stdout)
+    handle = ctypes.windll.kernel32.GetStdHandle(-11)  # -11 is STD_OUTPUT_HANDLE
+
+    # Define the structure for the terminal size
+    class CONSOLE_SCREEN_BUFFER_INFO(ctypes.Structure):
+        _fields_ = [
+            ("dwSize", ctypes.wintypes._COORD),
+            ("dwCursorPosition", ctypes.wintypes._COORD),
+            ("wAttributes", ctypes.wintypes.WORD),
+            ("srWindow", ctypes.wintypes.SMALL_RECT),
+            ("dwMaximumWindowSize", ctypes.wintypes._COORD),
+        ]
+
+    class _COORD(ctypes.Structure):
+        _fields_ = [("X", ctypes.c_short), ("Y", ctypes.c_short)]
+
+    class SMALL_RECT(ctypes.Structure):
+        _fields_ = [("Left", ctypes.c_short), ("Top", ctypes.c_short),
+                    ("Right", ctypes.c_short), ("Bottom", ctypes.c_short)]
+
+    # Update the terminal screen buffer
+    size = _COORD(width, height)
+    srWindow = SMALL_RECT(0, 0, width - 1, height - 1)
+    success = ctypes.windll.kernel32.SetConsoleScreenBufferSize(handle, size)
+    if not success:
+        raise OSError("Failed to set screen buffer size")
+
+    # Update the terminal window size
+    success = ctypes.windll.kernel32.SetConsoleWindowInfo(handle, True, ctypes.byref(srWindow))
+    if not success:
+        raise OSError("Failed to set console window info")
+
 
 def wsl_runner_print_logo():
     """
