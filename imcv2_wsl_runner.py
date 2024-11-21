@@ -3,7 +3,7 @@
 """
 Script:       imcv2_wsl_runner.py
 Author:       Intel IMCv2 Team
-Version:      1.0.4
+Version:      1.0.5
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -67,7 +67,7 @@ MCV2_WSL_DEFAULT_PASSWORD = "intel@1234"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSLRunner"
-IMCV2_SCRIPT_VERSION = "1.0.4"
+IMCV2_SCRIPT_VERSION = "1.0.5"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Host Installer"
 
 # Spinning characters for progress indication
@@ -1229,7 +1229,7 @@ def run_user_creation_steps(instance_name: str, username: str, password: str, hi
     # Execute each command and handle errors
     for description, process, args, *ignore_errors in steps_commands:
         ignore_errors = ignore_errors[0] if ignore_errors else False
-        if wsl_runner_run_process(description, process, args, hidden=False, new_line=new_line,
+        if wsl_runner_run_process(description, process, args, hidden=hidden, new_line=new_line,
                                   ignore_errors=ignore_errors) != 0:
             raise StepError(f"Failed during step: {description}")
 
