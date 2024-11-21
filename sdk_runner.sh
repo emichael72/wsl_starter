@@ -153,7 +153,6 @@ runner_install_sdk() {
 		fi
 		# Handle existing path with force flag
 		if [[ -d "$destination_path" && "$force" -eq 1 ]]; then
-			echo "Force flag enabled. Uninstalling existing SDK..."
 			runner_install_sdk "uninstall" "$destination_path" || return 1
 		fi
 
@@ -178,7 +177,8 @@ runner_install_sdk() {
 		local exit_code=$?
 
 		if [[ $exit_code -eq 0 ]]; then
-			echo "SDK installed successfully at $destination_path."
+  			# Remove auto start in bashrc
+			runner_set_auto_start 0
 		else
 			echo "Error: SDK installation failed with exit code $exit_code."
 		fi
@@ -208,10 +208,9 @@ runner_set_auto_start() {
 	local header="# IMCv2 Auto start 'dt' and IMCv2 SDK install."
 	local auto_start_script="
 if sdk_runner.sh runner_ensure_dt; then
-    sdk_runner.sh runner_install_sdk install /home/\$USER/projects/sdk
+    sdk_runner.sh runner_install_sdk install /home/\$USER/projects/sdk 1
 fi
 "
-
 	# Validate input
 	if [[ "$enable" != "0" && "$enable" != "1" ]]; then
 		echo "Error: Invalid argument. Use 1 to enable or 0 to disable."
@@ -234,14 +233,11 @@ fi
 			echo "$auto_start_script"
 		} >>"$bashrc_path"
 
-		echo "Auto-start enabled in .bashrc."
 		return 0
 	else
 		# Disable auto-start
 		# Remove the auto-start block
 		sed -i "/$header/,/fi/d" "$bashrc_path"
-
-		echo "Auto-start disabled in .bashrc."
 		return 0
 	fi
 }
