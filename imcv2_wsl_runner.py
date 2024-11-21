@@ -1225,7 +1225,7 @@ def run_user_creation_steps(instance_name: str, username: str, password: str, hi
     # Execute each command and handle errors
     for description, process, args, *ignore_errors in steps_commands:
         ignore_errors = ignore_errors[0] if ignore_errors else False
-        if wsl_runner_run_process(description, process, args, hidden=hidden, new_line=new_line,
+        if wsl_runner_run_process(description, process, args, hidden=False, new_line=new_line,
                                   ignore_errors=ignore_errors) != 0:
             raise StepError(f"Failed during step: {description}")
 
@@ -1452,13 +1452,13 @@ def wsl_runner_main() -> int:
 
     except StepError as step_error:
         # Handle specific step errors
-        print(f"\nStepError: {step_error}")
+        print(f"\n\n    Error: {step_error}")
     except KeyboardInterrupt:
         # Handle user interruption gracefully
-        print("\nOperation interrupted by the user. Exiting...")
+        print("\n\n    Operation interrupted by the user. Exiting...")
     except Exception as general_error:
         # Handle unexpected exceptions
-        print(f"\nUnexpected error: {general_error}")
+        print(f"\n\n    Unexpected error: {general_error}")
 
     return 1
 
