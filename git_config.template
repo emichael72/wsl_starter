@@ -8,7 +8,7 @@
 	proxy = {proxy_server_port}
 [user]
 	email = {corp_email}
-	name = {corp_name}]
+	name = {corp_name}
 [fetch]
 	prune = true
 [credential "https://github.com"]
