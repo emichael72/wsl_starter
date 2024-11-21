@@ -3,7 +3,7 @@
 """
 Script:       imcv2_wsl_runner.py
 Author:       Intel IMCv2 Team
-Version:      1.0.5
+Version:      1.0.6
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -67,7 +67,7 @@ MCV2_WSL_DEFAULT_PASSWORD = "intel@1234"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSLRunner"
-IMCV2_SCRIPT_VERSION = "1.0.5"
+IMCV2_SCRIPT_VERSION = "1.0.6"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Host Installer"
 
 # Spinning characters for progress indication
@@ -641,6 +641,9 @@ def run_post_install_steps(instance_name: str, username, proxy_server, hidden: b
     Raises:
         StepError: If the step fails to execute successfully.
     """
+    # Get email and full name or empty strings
+    corp_name, corp_email = wsl_runner_get_office_user_identity() or ("", "")
+  
     steps_commands = [
         # Set the WSL instance as the default
         ("Setting the WSL instance as the default",
@@ -665,8 +668,14 @@ def run_post_install_steps(instance_name: str, username, proxy_server, hidden: b
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  f"chmod +x /home/{username}/bin/sdk_runner.sh"]),
 
+        # Use the SDK Runner to patch gitconfig
+        ("Patch gitconfig",
+         "wsl", ["-d", instance_name, "--", "bash", "-c",
+                 f"/home/{username}/bin/sdk_runner.sh runner_create_git_config "
+                 f"/home/{username}/git_config.template \"{corp_name}\" \"{corp_email}\""]),
+
         # Use the SDK Runner to patch bashrc
-        ("Make the SDK runner script executable",
+        ("Make 'dt' run at startup",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  f"/home/{username}/bin/sdk_runner.sh runner_set_auto_start 1"]),
 
