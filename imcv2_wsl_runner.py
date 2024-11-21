@@ -898,7 +898,7 @@ def run_install_system_packages(instance_name, username, packages_file, hidden=T
          "wsl", ["--terminate", instance_name]),
 
         # Installing packages from file (ignore errors on first attempt)
-        (f"Installing {line_count} packages from {os.path.basename(wsl_instance_packages_file)}",
+        (f"Installing {line_count} packages",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  f"xargs -a {wsl_instance_packages_file} -r sudo apt install -y --ignore-missing -qq"], True),
 
