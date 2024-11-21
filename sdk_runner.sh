@@ -180,6 +180,7 @@ runner_install_sdk() {
 			runner_set_auto_start 0
 		else
 			echo "Error: SDK installation failed with exit code $exit_code."
+   			echo "This instance will keep trying. Please reopen this window to try again."
 		fi
 		return $exit_code
 		;;
