@@ -38,9 +38,15 @@ Notes:
 - This script is designed for internal use by the Intel IMCv2 team.
 """
 
+import os
+def check_os():
+    if sys.platform != "win32":
+        raise EnvironmentError("This script is designed to run only on Windows.")
+# Perform the OS check before anything else.
+check_os()
+
 import argparse
 import itertools
-import os
 import re
 import subprocess
 import sys
@@ -133,6 +139,36 @@ def wsl_runnerset_terminal_size(width, height):
     success = ctypes.windll.kernel32.SetConsoleWindowInfo(handle, True, ctypes.byref(srWindow))
     if not success:
         raise OSError("Failed to set console window info")
+
+
+def wsl_runner_get_office_user_identity():
+    """
+    Extract ADUserDisplayName and ADUserName from the Windows Registry.
+    Tries Office 16.0 first, then 15.0.
+
+    Returns:
+        tuple: (Full name, Corporate email) if found, otherwise None.
+    """
+    registry_paths = [
+        r"Software\Microsoft\Office\16.0\Common\Identity",
+        r"Software\Microsoft\Office\15.0\Common\Identity"
+    ]
+
+    for path in registry_paths:
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path) as key:
+                display_name = winreg.QueryValueEx(key, "ADUserDisplayName")[0]
+                email = winreg.QueryValueEx(key, "ADUserName")[0]
+                return display_name, email
+        except FileNotFoundError:
+            # Try the next path if the current one doesn't exist
+            continue
+        except Exception as e:
+            print(f"Error reading registry path {path}: {e}")
+            return None
+
+    # If no identity is found in any of the paths
+    return None
 
 
 def wsl_runner_print_logo():
