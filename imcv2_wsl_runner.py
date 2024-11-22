@@ -209,6 +209,30 @@ def wsl_runner_get_desktop_path() -> str:
         raise FileNotFoundError(f"Failed to retrieve desktop path: {e}")
 
 
+def wsl_runner_is_proxy_available(proxy_server: str, timeout: int = 5) -> bool:
+    """
+    Checks if the specified proxy server is reachable by sending a curl request to a known URL.
+    
+    Args:
+        proxy_server (str): The proxy server to test.
+        timeout (int, optional): Timeout in seconds for the test. Default is 5 seconds.
+
+    Returns:
+        bool: True if the proxy server is reachable, False otherwise.
+    """
+    test_url = "https://www.google.com"  # Use a reliable public URL for connectivity testing
+    try:
+        result = subprocess.run(
+            ["curl", "--proxy", proxy_server, "--silent", "--head", "--fail", test_url],
+            timeout=timeout,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return result.returncode == 0
+    except subprocess.TimeoutExpired:
+        return False
+
+
 def wsl_runner_start_wsl_shell(distribution=None):
     """
     Launches an interactive WSL shell. Optionally, specify a distribution.
@@ -286,7 +310,7 @@ def wsl_runner_ensure_directory_exists(args: list) -> int:
         return 1  # Failure
 
 
-def wsl_runner_download_resources(url, destination_path, proxy_server, timeout=30):
+def wsl_runner_download_resources(url, destination_path, proxy_server: str = None, timeout: int = 30) -> bool:
     """
     Downloads a file from the specified URL using curl, with optional proxy configuration.
     The downloaded file is saved to the specified destination path.
@@ -294,7 +318,7 @@ def wsl_runner_download_resources(url, destination_path, proxy_server, timeout=3
     Args:
         url (str): The URL of the resource to download.
         destination_path (str): The path where the downloaded file should be saved.
-        proxy_server (str): The proxy server to use for the download.
+        proxy_server (str, optional): The proxy server to use for the download. Default is None.
         timeout (int, optional): The time in seconds to wait before the request times out. Default is 30 seconds.
 
     Returns:
@@ -304,10 +328,13 @@ def wsl_runner_download_resources(url, destination_path, proxy_server, timeout=3
     parsed_url = urlparse(url)
     destination = os.path.join(destination_path, os.path.basename(parsed_url.path))
 
+    # Define curl arguments based on proxy availability
+    curl_proxy_arg = f"--proxy {proxy_server}" if proxy_server else ""
+
     # Set up curl arguments
     args = [
-        "-s", "-S", "-w", "%{http_code}",  # silent mode, show errors, output HTTP status code
-        "--proxy", proxy_server,  # Use specified proxy server
+        "-s", "-S", "-w", "%{http_code}",  # Silent mode, show errors, output HTTP status code
+        curl_proxy_arg,
         "--output", destination,  # Specify the output file destination
         url  # URL of the resource to download
     ]
@@ -315,13 +342,12 @@ def wsl_runner_download_resources(url, destination_path, proxy_server, timeout=3
     # Execute the curl command and capture the output
     status_code, response_code = wsl_runner_exec_process("curl", args, hidden=True, timeout=timeout)
 
-    # Check if the download was successful by verifying the HTTP status code
-    if status_code == 0:
-        if response_code == 200:
-            return 0
+    # Check if the download was successful
+    if status_code == 0 and str(response_code).strip() == "200":
+        return True
 
     # If any check fails, return False
-    return 1
+    return False
 
 
 def wsl_runner_console_decoder(input_string: str) -> str:
@@ -510,7 +536,7 @@ def ws_runner_run_function(description: str, process, args: list,
     # Prepare the dots
 
     wsl_runner_print_status(TextType.PREFIX, description, new_line)
-
+    
     try:
         if callable(process):  # Check if process is a callable Python function
             status = process(*args)  # Call the Python function with arguments
@@ -1314,6 +1340,12 @@ def run_pre_prerequisites_steps(base_path: str, instance_path: str, bare_linux_i
     Raises:
         StepError: If any step in the process fails.
     """
+    
+    # This is desiged to work at Intel
+    if not wsl_runner_is_proxy_available(proxy_server):
+        wsl_runner_print_status(TextType.BOTH, f"Proxy '{proxy_server}' is not availabl", True, 1)
+        raise StepError(f"Failed during step: prerequisites")
+            
     steps_commands = [
         # Ensure necessary directories exist
         ("Verifying destination paths", wsl_runner_ensure_directory_exists,
@@ -1423,7 +1455,9 @@ def wsl_runner_main() -> int:
 
         username = os.getlogin()
         instance_name = args.name
-
+           print(f"Warning: Proxy '{proxy_server}' is not available. Proceeding without proxy.")
+            proxy_server = None
+        
         # Set variables based on default are arguments if provided
         password = args.password if args.password else MCV2_WSL_DEFAULT_PASSWORD
         base_path = args.base_path if args.base_path else IMCV2_WSL_DEFAULT_BASE_PATH
