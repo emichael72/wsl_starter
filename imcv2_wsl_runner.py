@@ -310,7 +310,7 @@ def wsl_runner_ensure_directory_exists(args: list) -> int:
         return 1  # Failure
 
 
-def wsl_runner_download_resources(url, destination_path, proxy_server: str = None, timeout: int = 30) -> bool:
+def wsl_runner_download_resources(url, destination_path, proxy_server: str = None, timeout: int = 30) -> int:
     """
     Downloads a file from the specified URL using curl, with optional proxy configuration.
     The downloaded file is saved to the specified destination path.
@@ -322,32 +322,36 @@ def wsl_runner_download_resources(url, destination_path, proxy_server: str = Non
         timeout (int, optional): The time in seconds to wait before the request times out. Default is 30 seconds.
 
     Returns:
-        bool: True if the download succeeded (status code 200), False otherwise.
+        int: 0 if the download succeeded (status code 200), 1 otherwise.
     """
     # Parse the URL and get the file name from the URL path
     parsed_url = urlparse(url)
     destination = os.path.join(destination_path, os.path.basename(parsed_url.path))
 
     # Define curl arguments based on proxy availability
-    curl_proxy_arg = f"--proxy {proxy_server}" if proxy_server else ""
-
-    # Set up curl arguments
-    args = [
-        "-s", "-S", "-w", "%{http_code}",  # Silent mode, show errors, output HTTP status code
-        curl_proxy_arg,
-        "--output", destination,  # Specify the output file destination
-        url  # URL of the resource to download
-    ]
+    if proxy_server:
+        args = [
+            "-s", "-S", "-w", "%{http_code}",  # silent mode, show errors, output HTTP status code
+            "--proxy", proxy_server,  # Use specified proxy server
+            "--output", destination,  # Specify the output file destination
+            url  # URL of the resource to download
+        ]
+    else:
+        args = [
+            "-s", "-S", "-w", "%{http_code}",  # silent mode, show errors, output HTTP status code
+            "--output", destination,  # Specify the output file destination
+            url  # URL of the resource to download
+        ]
 
     # Execute the curl command and capture the output
     status_code, response_code = wsl_runner_exec_process("curl", args, hidden=True, timeout=timeout)
 
     # Check if the download was successful
     if status_code == 0 and str(response_code).strip() == "200":
-        return True
+        return 0
 
     # If any check fails, return False
-    return False
+    return 1
 
 
 def wsl_runner_console_decoder(input_string: str) -> str:
@@ -478,6 +482,7 @@ def wsl_runner_print_status(
 
     # ANSI color codes
     green = "\033[32m"
+    yellow = "\033[33m"
     red = "\033[31m"
     bright_blue = "\033[94m"
     reset = "\033[0m"
@@ -494,7 +499,8 @@ def wsl_runner_print_status(
         sys.stdout.flush()
 
         # Show spinner
-        wsl_runner_set_spinner(True)
+        if text_type is not TextType.BOTH:
+            wsl_runner_set_spinner(True)
 
     # Handle SUFFIX or BOTH types
     if text_type in {TextType.BOTH, TextType.SUFFIX}:
@@ -505,12 +511,15 @@ def wsl_runner_print_status(
         if ret_val == 0:
             pass
         elif ret_val == 1000:  # Special code for step completed.
-            sys.stdout.write(f"{green}OK{reset}")
+            sys.stdout.write(f"{green} OK{reset}")
+        elif ret_val == 1001:  # Special code for step completed.
+            sys.stdout.write(f"{yellow} Warning{reset}")
         else:
             if ret_val == 124:
                 sys.stdout.write(f"{bright_blue} Timeout{reset}")
             else:
-                sys.stdout.write(f"{red} Error({ret_val}){reset}")
+                ret_val = (ret_val - 2 ** 32) if ret_val >= 2 ** 31 else ret_val
+                sys.stdout.write(f"{red} Error ({ret_val}){reset}")
 
         sys.stdout.flush()
         time.sleep(0.3)  # Small delay for visual clarity
@@ -1341,9 +1350,9 @@ def run_pre_prerequisites_steps(base_path: str, instance_path: str, bare_linux_i
         StepError: If any step in the process fails.
     """
     
-    # This is desiged to work at Intel
+    # This is designed to work at Intel
     if not wsl_runner_is_proxy_available(proxy_server):
-        wsl_runner_print_status(TextType.BOTH, "Warning: Proxy is not available", True, 0)
+        wsl_runner_print_status(TextType.BOTH, "Warning: Intel proxy is not available", True, 1001)
         proxy_server = None
             
     steps_commands = [
@@ -1495,13 +1504,13 @@ def wsl_runner_main() -> int:
 
     except StepError as step_error:
         # Handle specific step errors
-        print(f"    Error: {step_error}")
+        print(f"\n    Error: {step_error}")
     except KeyboardInterrupt:
         # Handle user interruption gracefully
-        print("    Operation interrupted by the user. Exiting...")
+        print("\n    Operation interrupted by the user. Exiting...")
     except Exception as general_error:
         # Handle unexpected exceptions
-        print(f"    Unexpected error: {general_error}")
+        print(f"\n    Unexpected error: {general_error}")
 
     return 1
 
