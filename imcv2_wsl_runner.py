@@ -508,9 +508,9 @@ def wsl_runner_print_status(
             sys.stdout.write(f"{green}OK{reset}")
         else:
             if ret_val == 124:
-                sys.stdout.write(f"{bright_blue}Timeout{reset}")
+                sys.stdout.write(f"{bright_blue} Timeout{reset}")
             else:
-                sys.stdout.write(f"{red}Error({ret_val}){reset}")
+                sys.stdout.write(f"{red} Error({ret_val}){reset}")
 
         sys.stdout.flush()
         time.sleep(0.3)  # Small delay for visual clarity
@@ -1343,7 +1343,7 @@ def run_pre_prerequisites_steps(base_path: str, instance_path: str, bare_linux_i
     
     # This is desiged to work at Intel
     if not wsl_runner_is_proxy_available(proxy_server):
-        wsl_runner_print_status(TextType.BOTH, f"Proxy '{proxy_server}' is not availabl", True, 1)
+        wsl_runner_print_status(TextType.BOTH, f"Proxy '{proxy_server}' is not available", True, 1)
         raise StepError(f"Failed during step: prerequisites")
             
     steps_commands = [
@@ -1495,13 +1495,13 @@ def wsl_runner_main() -> int:
 
     except StepError as step_error:
         # Handle specific step errors
-        print(f"\n\n    Error: {step_error}")
+        print(f"    Error: {step_error}")
     except KeyboardInterrupt:
         # Handle user interruption gracefully
-        print("\n\n    Operation interrupted by the user. Exiting...")
+        print("    Operation interrupted by the user. Exiting...")
     except Exception as general_error:
         # Handle unexpected exceptions
-        print(f"\n\n    Unexpected error: {general_error}")
+        print(f"    Unexpected error: {general_error}")
 
     return 1
 
