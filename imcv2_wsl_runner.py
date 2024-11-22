@@ -185,8 +185,8 @@ def wsl_runner_show_info(show_logo: bool = False):
     if show_logo:
         wsl_runner_print_logo()
 
-    sys.stdout.write(f"Welcome to the {bright_white}IMCv2 SDK-WSL{reset} v{IMCV2_SCRIPT_VERSION} Image Creator!\n\n")
-    sys.stdout.write(f"We're setting up your environment—here's what's next:\n")
+    sys.stdout.write(f"Welcome to the {bright_white}IMCv2 SDK-WSL{reset} v{IMCV2_SCRIPT_VERSION} Image Creator!\n")
+    sys.stdout.write(f"We're setting up your environment—here's what's next:\n\n")
     sys.stdout.write(f"{bold}{green}1.{reset} Download a compatible Ubuntu image (ubuntu-base-24.04.1).\n")
     sys.stdout.write(f"{bold}{green}2.{reset} Create and import a new WSL Linux instance.\n")
     sys.stdout.write(f"{bold}{green}3.{reset} Configure environment settings.\n")
@@ -1033,7 +1033,7 @@ def run_user_shell_steps(instance_name: str, username: str, proxy_server: str, h
                  f"echo 'export https_proxy={proxy_server}' >> /home/{username}/.bashrc"]),
 
         # Set full name in .bashrc if corp_name is not None
-        *(
+        (
             [(
                 f"Setting full name",
                 "wsl", ["-d", instance_name, "--", "bash", "-c",
@@ -1043,7 +1043,7 @@ def run_user_shell_steps(instance_name: str, username: str, proxy_server: str, h
         ),
 
         # Set email address in .bashrc if corp_email is not None
-        *(
+        (
             [(
                 f"Setting email address",
                 "wsl", ["-d", instance_name, "--", "bash", "-c",
