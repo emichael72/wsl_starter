@@ -3,7 +3,7 @@
 """
 Script:       imcv2_wsl_runner.py
 Author:       Intel IMCv2 Team
-Version:      1.0.8
+Version:      1.0.9
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -67,12 +67,14 @@ MCV2_WSL_DEFAULT_PASSWORD = "intel@1234"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSLRunner"
-IMCV2_SCRIPT_VERSION = "1.0.8"
+IMCV2_SCRIPT_VERSION = "1.0.9"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Host Installer"
 
 # Spinning characters for progress indication
 spinner_active = False
 
+# Intel Proxy availability
+intel_proxy_detected = True
 
 class StepError(Exception):
     """
@@ -833,6 +835,8 @@ def run_install_user_packages(instance_name, username, proxy_server, hidden=True
         new_line (bool): Specifies whether each step should be displayed on its own line.
     """
 
+    global intel_proxy_detected
+
     # Define commands related to package installation
     steps_commands = [
         # Ensure the target directory exists
@@ -842,15 +846,19 @@ def run_install_user_packages(instance_name, username, proxy_server, hidden=True
                  f"/usr/share/git-core/contrib/completion"]),
 
         # Download git-completion.bash using curl
-        ("Downloading git-completion.bash via proxy",
+        ("Downloading git-completion.bash",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 f"curl -s -S --proxy {proxy_server} -o /usr/share/git-core/contrib/completion/git-completion.bash "
+                 f"curl -s -S "
+                 f"{'--proxy ' + proxy_server if intel_proxy_detected else ''} "
+                 "-o /usr/share/git-core/contrib/completion/git-completion.bash "
                  "https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash"]),
 
         # Download git-prompt.sh using curl
-        ("Downloading git-prompt.sh via proxy",
+        ("Downloading git-prompt.sh",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 f"curl -s -S --proxy {proxy_server} -o /usr/share/git-core/contrib/completion/git-prompt.sh "
+                 f"curl -s -S "
+                 f"{'--proxy ' + proxy_server if intel_proxy_detected else ''} "
+                 "-o /usr/share/git-core/contrib/completion/git-prompt.sh "
                  "https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh"]),
 
         # Set a proper colored Git-aware prompt in .bashrc
@@ -1349,11 +1357,14 @@ def run_pre_prerequisites_steps(base_path: str, instance_path: str, bare_linux_i
     Raises:
         StepError: If any step in the process fails.
     """
-    
+
+    global intel_proxy_detected
+
     # This is designed to work at Intel
     if not wsl_runner_is_proxy_available(proxy_server):
         wsl_runner_print_status(TextType.BOTH, "Warning: Intel proxy is not available", True, 1001)
         proxy_server = None
+        intel_proxy_detected = False
             
     steps_commands = [
         # Ensure necessary directories exist
