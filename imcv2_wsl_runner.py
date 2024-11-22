@@ -1455,8 +1455,6 @@ def wsl_runner_main() -> int:
 
         username = os.getlogin()
         instance_name = args.name
-           print(f"Warning: Proxy '{proxy_server}' is not available. Proceeding without proxy.")
-            proxy_server = None
         
         # Set variables based on default are arguments if provided
         password = args.password if args.password else MCV2_WSL_DEFAULT_PASSWORD
