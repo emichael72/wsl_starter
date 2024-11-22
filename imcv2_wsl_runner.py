@@ -1343,7 +1343,7 @@ def run_pre_prerequisites_steps(base_path: str, instance_path: str, bare_linux_i
     
     # This is desiged to work at Intel
     if not wsl_runner_is_proxy_available(proxy_server):
-        wsl_runner_print_status(TextType.BOTH, f"Warning: Proxy '{proxy_server}' is not available", True, 0)
+        wsl_runner_print_status(TextType.BOTH, "Warning: Proxy is not available", True, 0)
         proxy_server = None
             
     steps_commands = [
