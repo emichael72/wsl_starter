@@ -3,7 +3,7 @@
 """
 Script:       imcv2_wsl_runner.py
 Author:       Intel IMCv2 Team
-Version:      1.1.2
+Version:      1.1.3
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -67,7 +67,7 @@ MCV2_WSL_DEFAULT_PASSWORD = "intel@1234"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSLRunner"
-IMCV2_SCRIPT_VERSION = "1.1.2"
+IMCV2_SCRIPT_VERSION = "1.1.3"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Host Installer"
 
 # Spinning characters for progress indication
@@ -86,6 +86,16 @@ class StepError(Exception):
         distinct handling compared to generic exceptions.
     """
     pass
+
+
+class InfoType(Enum):
+    """
+    Enum to specify the type of event display for status messages.
+
+    """
+    STEP_OK = 0
+    STEPS_DONE = 1000
+    WARNING = 1001
 
 
 class TextType(Enum):
@@ -168,6 +178,9 @@ def wsl_runner_show_info(show_logo: bool = False):
     green = "\033[32m"
     bright_blue = "\033[94m"
     bright_white = "\033[97m"
+
+    sys.stdout.flush()
+    os.system("cls")
 
     if show_logo:
         wsl_runner_print_logo()
@@ -680,9 +693,6 @@ def run_post_install_steps(instance_name: str, username, proxy_server, hidden: b
     """
     global intel_proxy_detected
 
-    # Get email and full name or empty strings
-    corp_name, corp_email = wsl_runner_get_office_user_identity() or ("", "")
-
     steps_commands = [
         # Set the WSL instance as the default
         ("Setting the WSL instance as the default",
@@ -721,12 +731,6 @@ def run_post_install_steps(instance_name: str, username, proxy_server, hidden: b
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  f"chmod +x /home/{username}/bin/sdk_runner.sh"]),
 
-        # Use the SDK Runner to patch gitconfig
-        ("Patch gitconfig",
-         "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 f"/home/{username}/bin/sdk_runner.sh runner_create_git_config "
-                 f"/home/{username}/git_config.template \"{corp_name}\" \"{corp_email}\""]),
-
         # Use the SDK Runner to patch bashrc
         ("Make 'dt' run at startup",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
@@ -741,7 +745,7 @@ def run_post_install_steps(instance_name: str, username, proxy_server, hidden: b
     # Execute the command and handle errors
     for description, process, args, *ignore_errors in steps_commands:
         ignore_errors = ignore_errors[0] if ignore_errors else False
-        if wsl_runner_run_process(description, process, args, hidden=False, new_line=new_line,
+        if wsl_runner_run_process(description, process, args, hidden=hidden, new_line=new_line,
                                   ignore_errors=ignore_errors) != 0:
             raise StepError(f"Failed during step: {description}")
 
@@ -1009,6 +1013,9 @@ def run_user_shell_steps(instance_name: str, username: str, proxy_server: str, h
         StepError: If any step in the process fails.
     """
 
+    # Get email and full name or empty strings
+    corp_name, corp_email = wsl_runner_get_office_user_identity()
+
     global intel_proxy_detected
 
     # Define the steps to configure the shell environment
@@ -1024,6 +1031,26 @@ def run_user_shell_steps(instance_name: str, username: str, proxy_server: str, h
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  f"grep -q 'export https_proxy=' /home/{username}/.bashrc || "
                  f"echo 'export https_proxy={proxy_server}' >> /home/{username}/.bashrc"]),
+
+        # Set full name in .bashrc if corp_name is not None
+        *(
+            [(
+                f"Setting full name",
+                "wsl", ["-d", instance_name, "--", "bash", "-c",
+                        f"grep -q 'export IMCV2_FULL_NAME=' /home/{username}/.bashrc || "
+                        f"echo 'export IMCV2_FULL_NAME={corp_name}' >> /home/{username}/.bashrc"]
+            )] if corp_name is not None else []
+        ),
+
+        # Set email address in .bashrc if corp_email is not None
+        *(
+            [(
+                f"Setting email address",
+                "wsl", ["-d", instance_name, "--", "bash", "-c",
+                        f"grep -q 'export IMCV2_EMAIL=' /home/{username}/.bashrc || "
+                        f"echo 'export IMCV2_EMAIL={corp_email}' >> /home/{username}/.bashrc"]
+            )] if corp_email is not None else []
+        ),
 
         # Create necessary directories
         ("Create necessary directories",
@@ -1492,7 +1519,7 @@ def wsl_runner_main() -> int:
 
         # This is designed to work at Intel
         if not wsl_runner_is_proxy_available(proxy_server):
-            wsl_runner_print_status(TextType.BOTH, "Warning: Intel proxy is not available", True, 1001)
+            wsl_runner_print_status(TextType.BOTH, "Intel proxy is not available", True, 1001)
             intel_proxy_detected = False
 
         # Define all steps as a list of tuples (step_name, function_call)
