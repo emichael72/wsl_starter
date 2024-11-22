@@ -3,7 +3,7 @@
 """
 Script:       imcv2_wsl_runner.py
 Author:       Intel IMCv2 Team
-Version:      1.1.0
+Version:      1.1.2
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -67,7 +67,7 @@ MCV2_WSL_DEFAULT_PASSWORD = "intel@1234"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSLRunner"
-IMCV2_SCRIPT_VERSION = "1.1.0"
+IMCV2_SCRIPT_VERSION = "1.1.2"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Host Installer"
 
 # Spinning characters for progress indication
@@ -154,7 +154,7 @@ def wsl_runner_print_logo():
     sys.stdout.flush()
 
 
-def wsl_runner_show_info():
+def wsl_runner_show_info(show_logo: bool = False):
     """
         Provides detailed information about the steps performed by
         the IMCv2 WSL installer. It outlines the tasks, such as downloading a
@@ -169,20 +169,17 @@ def wsl_runner_show_info():
     bright_blue = "\033[94m"
     bright_white = "\033[97m"
 
-    wsl_runner_print_logo()
+    if show_logo:
+        wsl_runner_print_logo()
 
-    info = f"""
-    Welcome to the {bright_white}IMCv2 SDK-WSL{reset} v{IMCV2_SCRIPT_VERSION} Image Creator!
-    We're setting up your environment—here's what's next:
-    
-    {bold}{green}1.{reset} Download a compatible Ubuntu image (ubuntu-base-24.04.1).
-    {bold}{green}2.{reset} Create and import a new WSL Linux instance.
-    {bold}{green}3.{reset} Configure environment settings.
-    {bold}{green}4.{reset} Install essential packages for the {bright_white}IMCv2{reset} SDK.
-    
-    ⚠️ Please keep your PC connected to {bright_blue}Intel{reset} throughout.
-    """
-    print(f"{info}")
+    sys.stdout.write(f"Welcome to the {bright_white}IMCv2 SDK-WSL{reset} v{IMCV2_SCRIPT_VERSION} Image Creator!\n\n")
+    sys.stdout.write(f"We're setting up your environment—here's what's next:\n")
+    sys.stdout.write(f"{bold}{green}1.{reset} Download a compatible Ubuntu image (ubuntu-base-24.04.1).\n")
+    sys.stdout.write(f"{bold}{green}2.{reset} Create and import a new WSL Linux instance.\n")
+    sys.stdout.write(f"{bold}{green}3.{reset} Configure environment settings.\n")
+    sys.stdout.write(f"{bold}{green}4.{reset} Install essential packages for the {bright_white}IMCv2{reset} SDK.\n\n")
+    sys.stdout.write(f"⚠️ Please keep your PC connected to {bright_blue}Intel{reset} throughout.\n\n")
+    sys.stdout.flush()
 
 
 def wsl_runner_get_desktop_path() -> str:
@@ -331,17 +328,19 @@ def wsl_runner_download_resources(url, destination_path, proxy_server: str = Non
     parsed_url = urlparse(url)
     destination = os.path.join(destination_path, os.path.basename(parsed_url.path))
 
+    global intel_proxy_detected
+
     # Define curl arguments based on proxy availability
-    if proxy_server:
+    if not proxy_server or intel_proxy_detected == False:
         args = [
             "-s", "-S", "-w", "%{http_code}",  # silent mode, show errors, output HTTP status code
-            "--proxy", proxy_server,  # Use specified proxy server
             "--output", destination,  # Specify the output file destination
             url  # URL of the resource to download
         ]
     else:
         args = [
             "-s", "-S", "-w", "%{http_code}",  # silent mode, show errors, output HTTP status code
+            "--proxy", proxy_server,  # Use specified proxy server
             "--output", destination,  # Specify the output file destination
             url  # URL of the resource to download
         ]
@@ -498,7 +497,7 @@ def wsl_runner_print_status(
         dots_count = max_length - len(description) - 2
         dots = "." * dots_count
         # Print the description with one space before and after the dots
-        sys.stdout.write(f"\r    \033[K{description} {dots} ")
+        sys.stdout.write(f"\r\033[K{description} {dots} ")
         sys.stdout.flush()
 
         # Show spinner
@@ -679,6 +678,8 @@ def run_post_install_steps(instance_name: str, username, proxy_server, hidden: b
     Raises:
         StepError: If the step fails to execute successfully.
     """
+    global intel_proxy_detected
+
     # Get email and full name or empty strings
     corp_name, corp_email = wsl_runner_get_office_user_identity() or ("", "")
 
@@ -687,19 +688,33 @@ def run_post_install_steps(instance_name: str, username, proxy_server, hidden: b
         ("Setting the WSL instance as the default",
          "wsl", ["--set-default", instance_name]),
 
-        # Download git configuration template via proxy
+        # Download git configuration template
         ("Downloading git configuration template",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 f"curl -sS --proxy {proxy_server} "
-                 f"-o /home/{username}/downloads/git_config.template "
-                 "https://raw.githubusercontent.com/emichael72/wsl_starter/main/git_config.template"]),
+                 (
+                     f"curl -sS --proxy {proxy_server} "
+                     f"-o /home/{username}/downloads/git_config.template "
+                     "https://raw.githubusercontent.com/emichael72/wsl_starter/main/git_config.template"
+                     if intel_proxy_detected else
+                     f"curl -sS "
+                     f"-o /home/{username}/downloads/git_config.template "
+                     "https://raw.githubusercontent.com/emichael72/wsl_starter/main/git_config.template"
+                 )
+                 ]),
 
-        # Download SDK runner script via proxy
+        # Download SDK runner script
         ("Downloading SDK runner script",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 f"curl -sS --proxy {proxy_server} "
-                 f"-o /home/{username}/bin/sdk_runner.sh "
-                 "https://raw.githubusercontent.com/emichael72/wsl_starter/main/sdk_runner.sh"]),
+                 (
+                     f"curl -sS --proxy {proxy_server} "
+                     f"-o /home/{username}/bin/sdk_runner.sh "
+                     "https://raw.githubusercontent.com/emichael72/wsl_starter/main/sdk_runner.sh"
+                     if intel_proxy_detected else
+                     f"curl -sS "
+                     f"-o /home/{username}/bin/sdk_runner.sh "
+                     "https://raw.githubusercontent.com/emichael72/wsl_starter/main/sdk_runner.sh"
+                 )
+                 ]),
 
         # Make the SDK Runner executable
         ("Make the SDK runner script executable",
@@ -726,7 +741,7 @@ def run_post_install_steps(instance_name: str, username, proxy_server, hidden: b
     # Execute the command and handle errors
     for description, process, args, *ignore_errors in steps_commands:
         ignore_errors = ignore_errors[0] if ignore_errors else False
-        if wsl_runner_run_process(description, process, args, hidden=hidden, new_line=new_line,
+        if wsl_runner_run_process(description, process, args, hidden=False, new_line=new_line,
                                   ignore_errors=ignore_errors) != 0:
             raise StepError(f"Failed during step: {description}")
 
@@ -746,6 +761,8 @@ def run_install_pyenv(instance_name, username, proxy_server, hidden=True, new_li
         new_line (bool): Specifies whether each step should be displayed on its own line.
     """
 
+    global intel_proxy_detected
+
     # Define commands related to package installation
     steps_commands = [
 
@@ -754,8 +771,8 @@ def run_install_pyenv(instance_name, username, proxy_server, hidden=True, new_li
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  f"curl -s -S "
                  f"{'--proxy ' + proxy_server if intel_proxy_detected else ''} "
-                 "-o /home/{username}/downloads/pyenv-installer "
-                 "https://raw.githubusercontent.com/pyenv/pyenv-installer/master/bin/pyenv-installe"]),
+                 f"-o /home/{username}/downloads/pyenv-installer "
+                 "https://raw.githubusercontent.com/pyenv/pyenv-installer/master/bin/pyenv-installer"]),
 
         # Make the installer executable
         ("Make 'pyenv' installer executable",
@@ -767,13 +784,18 @@ def run_install_pyenv(instance_name, username, proxy_server, hidden=True, new_li
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  f"rm -rf /home/{username}/.pyenv"]),
 
-        # Step 4: Run pyenv installer with proxy settings
-        ("Run 'pyenv' installer with proxy settings",
+        # Run pyenv-installer
+        ("Run pyenv-installer",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 f"export http_proxy={proxy_server} && export https_proxy={proxy_server} && "
-                 f"/home/{username}/downloads/pyenv-installer"]),
+                 (
+                     f"export http_proxy={proxy_server} && export https_proxy={proxy_server} && "
+                     f"/home/{username}/downloads/pyenv-installer"
+                     if intel_proxy_detected else
+                     f"/home/{username}/downloads/pyenv-installer"
+                 )
+                 ]),
 
-        # Step 5: Check for errors during installation
+        # Check for errors during installation
         ("Verify 'pyenv' installation success",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  "if [ $? -ne 0 ]; then echo 'Failed to install pyenv'; exit 1; fi"]),
@@ -824,7 +846,7 @@ def run_install_pyenv(instance_name, username, proxy_server, hidden=True, new_li
         ignore_errors = ignore_errors[0] if ignore_errors else False
         if wsl_runner_run_process(description, process, args, hidden=hidden, new_line=new_line,
                                   ignore_errors=ignore_errors) != 0:
-            raise StepError("Failed to complete step")
+            raise StepError(f"Failed during step: {description}")
 
     wsl_runner_print_status(TextType.BOTH, "Python 3.9 via 'pyenv' installation", True, 1000)
 
@@ -893,7 +915,7 @@ def run_install_user_packages(instance_name, username, proxy_server, hidden=True
         ignore_errors = ignore_errors[0] if ignore_errors else False
         if wsl_runner_run_process(description, process, args, hidden=hidden, new_line=new_line,
                                   ignore_errors=ignore_errors) != 0:
-            raise StepError("Failed to complete step")
+            raise StepError(f"Failed during step: {description}")
 
     wsl_runner_print_status(TextType.BOTH, "User package installation", True, 1000)
 
@@ -966,7 +988,7 @@ def run_install_system_packages(instance_name, username, packages_file, hidden=T
         ignore_errors = ignore_errors[0] if ignore_errors else False
         if wsl_runner_run_process(description, process, args, hidden=hidden, new_line=new_line,
                                   timeout=timeout, ignore_errors=ignore_errors) != 0:
-            raise StepError("Failed to complete step")
+            raise StepError(f"Failed during step: {description}")
 
     wsl_runner_print_status(TextType.BOTH, "Ubuntu system package installation", True, 1000)
 
@@ -986,6 +1008,9 @@ def run_user_shell_steps(instance_name: str, username: str, proxy_server: str, h
     Raises:
         StepError: If any step in the process fails.
     """
+
+    global intel_proxy_detected
+
     # Define the steps to configure the shell environment
     steps_commands = [
         # Set HTTP Proxy in .bashrc
@@ -1000,17 +1025,12 @@ def run_user_shell_steps(instance_name: str, username: str, proxy_server: str, h
                  f"grep -q 'export https_proxy=' /home/{username}/.bashrc || "
                  f"echo 'export https_proxy={proxy_server}' >> /home/{username}/.bashrc"]),
 
-        # Create ~/downloads directory
-        ("Create ~/downloads directory",
+        # Create necessary directories
+        ("Create necessary directories",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 f"mkdir -p /home/{username}/downloads && sudo chown {username}:{username}"
-                 f" /home/{username}/downloads"]),
-
-        # Create ~/projects directory
-        ("Create ~/projects directory",
-         "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 f"mkdir -p /home/{username}/projects && sudo chown {username}:{username}"
-                 f" /home/{username}/projects"]),
+                 f"mkdir -p /home/{username}/downloads /home/{username}/projects /home/{username}/bin && "
+                 f"sudo chown -R {username}:{username} "
+                 f"/home/{username}/downloads /home/{username}/projects /home/{username}/bin"]),
 
         # Create .hushlogin in the user's home directory
         ("Create .hushlogin in the user's home directory",
@@ -1346,14 +1366,6 @@ def run_pre_prerequisites_steps(base_path: str, instance_path: str, bare_linux_i
         StepError: If any step in the process fails.
     """
 
-    global intel_proxy_detected
-
-    # This is designed to work at Intel
-    if not wsl_runner_is_proxy_available(proxy_server):
-        wsl_runner_print_status(TextType.BOTH, "Warning: Intel proxy is not available", True, 1001)
-        proxy_server = None
-        intel_proxy_detected = False
-
     steps_commands = [
         # Ensure necessary directories exist
         ("Verifying destination paths", wsl_runner_ensure_directory_exists,
@@ -1402,14 +1414,14 @@ def wsl_runner_check_installed():
 
     # Install help message
     if wsl_version_unknown:
-        print("\tWSL is installed but might not be WSL2, to install it:")
+        print("WSL is installed but might not be WSL2, to reinstall it:")
     else:
         print("WSL2 is not installed, to install it:")
+
     print("1. Open Command Prompt or PowerShell as Administrator.")
     print("2. Run: wsl --install --no-distribution")
-    print("3. Reboot if prompted, then rerun this installer.")
-
-    return 1  # WSL2 is not installed or not confirmed
+    print("3. Reboot if prompted, then rerun this installer.\n")
+    return 1
 
 
 def wsl_runner_main() -> int:
@@ -1461,6 +1473,7 @@ def wsl_runner_main() -> int:
 
         username = os.getlogin()
         instance_name = args.name
+        global intel_proxy_detected
 
         # Set variables based on default are arguments if provided
         password = args.password if args.password else MCV2_WSL_DEFAULT_PASSWORD
@@ -1476,6 +1489,11 @@ def wsl_runner_main() -> int:
 
         wsl_runner_show_info()
         sys.stdout.write("\033[?25l")  # Hide the cursor
+
+        # This is designed to work at Intel
+        if not wsl_runner_is_proxy_available(proxy_server):
+            wsl_runner_print_status(TextType.BOTH, "Warning: Intel proxy is not available", True, 1001)
+            intel_proxy_detected = False
 
         # Define all steps as a list of tuples (step_name, function_call)
         steps = [
@@ -1507,13 +1525,13 @@ def wsl_runner_main() -> int:
 
     except StepError as step_error:
         # Handle specific step errors
-        print(f"\n    Error: {step_error}")
+        print(f"\nError: {step_error}")
     except KeyboardInterrupt:
         # Handle user interruption gracefully
-        print("\n    Operation interrupted by the user. Exiting...")
+        print("\nOperation interrupted by the user. Exiting...")
     except Exception as general_error:
         # Handle unexpected exceptions
-        print(f"\n    Unexpected error: {general_error}")
+        print(f"\nUnexpected error: {general_error}")
 
     return 1
 
