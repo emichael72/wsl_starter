@@ -3,7 +3,7 @@
 """
 Script:       imcv2_wsl_runner.py
 Author:       Intel IMCv2 Team
-Version:      1.0.8
+Version:      1.1.0
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -67,11 +67,14 @@ MCV2_WSL_DEFAULT_PASSWORD = "intel@1234"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSLRunner"
-IMCV2_SCRIPT_VERSION = "1.0.8"
+IMCV2_SCRIPT_VERSION = "1.1.0"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Host Installer"
 
 # Spinning characters for progress indication
 spinner_active = False
+
+# Intel Proxy availability
+intel_proxy_detected = True
 
 
 class StepError(Exception):
@@ -545,7 +548,7 @@ def ws_runner_run_function(description: str, process, args: list,
     # Prepare the dots
 
     wsl_runner_print_status(TextType.PREFIX, description, new_line)
-    
+
     try:
         if callable(process):  # Check if process is a callable Python function
             status = process(*args)  # Call the Python function with arguments
@@ -678,7 +681,7 @@ def run_post_install_steps(instance_name: str, username, proxy_server, hidden: b
     """
     # Get email and full name or empty strings
     corp_name, corp_email = wsl_runner_get_office_user_identity() or ("", "")
-  
+
     steps_commands = [
         # Set the WSL instance as the default
         ("Setting the WSL instance as the default",
@@ -749,9 +752,10 @@ def run_install_pyenv(instance_name, username, proxy_server, hidden=True, new_li
         # Download pyenv installer
         ("Download 'pyenv' installer",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 f"curl -s -S -x {proxy_server} -L "
-                 f"https://raw.githubusercontent.com/pyenv/pyenv-installer/master/bin/pyenv-installer "
-                 f"-o /home/{username}/downloads/pyenv-installer"]),
+                 f"curl -s -S "
+                 f"{'--proxy ' + proxy_server if intel_proxy_detected else ''} "
+                 "-o /home/{username}/downloads/pyenv-installer "
+                 "https://raw.githubusercontent.com/pyenv/pyenv-installer/master/bin/pyenv-installe"]),
 
         # Make the installer executable
         ("Make 'pyenv' installer executable",
@@ -795,9 +799,14 @@ def run_install_pyenv(instance_name, username, proxy_server, hidden=True, new_li
         # Install Python 3.9.0 using pyenv with forced re-installation
         ("Install Python 3.9.0 using 'pyenv'",
          "wsl", ["-d", instance_name, "--user", username, "--", "bash", "-c",
-                 f"export http_proxy={proxy_server} && "
-                 f"export https_proxy={proxy_server} && "
-                 f"$HOME/.pyenv/bin/pyenv install 3.9.0 -f"]),
+                 (
+                     f"export http_proxy={proxy_server} && "
+                     f"export https_proxy={proxy_server} && "
+                     f"$HOME/.pyenv/bin/pyenv install 3.9.0 -f"
+                     if intel_proxy_detected else
+                     f"$HOME/.pyenv/bin/pyenv install 3.9.0 -f"
+                 )
+                 ]),
 
         # Set Python 3.9.0 as the global default version
         ("Set Python 3.9.0 as the global default version",
@@ -807,7 +816,6 @@ def run_install_pyenv(instance_name, username, proxy_server, hidden=True, new_li
         # Restarting session for changes to take effect
         ("Restarting session for changes to take effect",
          "wsl", ["--terminate", instance_name]),
-
     ]
 
     # Execute each command in the steps commands list
@@ -833,6 +841,8 @@ def run_install_user_packages(instance_name, username, proxy_server, hidden=True
         new_line (bool): Specifies whether each step should be displayed on its own line.
     """
 
+    global intel_proxy_detected
+
     # Define commands related to package installation
     steps_commands = [
         # Ensure the target directory exists
@@ -842,15 +852,19 @@ def run_install_user_packages(instance_name, username, proxy_server, hidden=True
                  f"/usr/share/git-core/contrib/completion"]),
 
         # Download git-completion.bash using curl
-        ("Downloading git-completion.bash via proxy",
+        ("Downloading git-completion.bash",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 f"curl -s -S --proxy {proxy_server} -o /usr/share/git-core/contrib/completion/git-completion.bash "
+                 f"curl -s -S "
+                 f"{'--proxy ' + proxy_server if intel_proxy_detected else ''} "
+                 "-o /usr/share/git-core/contrib/completion/git-completion.bash "
                  "https://raw.githubusercontent.com/git/git/master/contrib/completion/git-completion.bash"]),
 
         # Download git-prompt.sh using curl
-        ("Downloading git-prompt.sh via proxy",
+        ("Downloading git-prompt.sh",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 f"curl -s -S --proxy {proxy_server} -o /usr/share/git-core/contrib/completion/git-prompt.sh "
+                 f"curl -s -S "
+                 f"{'--proxy ' + proxy_server if intel_proxy_detected else ''} "
+                 "-o /usr/share/git-core/contrib/completion/git-prompt.sh "
                  "https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh"]),
 
         # Set a proper colored Git-aware prompt in .bashrc
@@ -858,7 +872,7 @@ def run_install_user_packages(instance_name, username, proxy_server, hidden=True
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  f"echo 'source /usr/share/git-core/contrib/completion/git-prompt.sh' >> /home/{username}/.bashrc"]),
 
-        # Step 2: Set Git-aware PS1 prompt in .bashrc
+        # Set Git-aware PS1 prompt in .bashrc
         ("Set Git-aware PS1 prompt in .bashrc",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  f"cat << 'EOF' >> /home/{username}/.bashrc\n"
@@ -866,24 +880,6 @@ def run_install_user_packages(instance_name, username, proxy_server, hidden=True
                  f"export PS1='\\[\\e[1;32m\\]\\u \\[\\e[1;34m\\]\\w\\[\\e[1;31m\\]"
                  f"\\$(__git_ps1 \" (%s)\") \\[\\e[0m\\]> '\n"
                  f"EOF"]),
-
-        # Download 'dt' file
-        (f"Downloading 'dt' to /home/{username}/downloads",
-         "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 f"curl -s -S --noproxy '*' -k -L "
-                 f"https://gfx-assets.intel.com/artifactory/gfx-build-assets/build-tools/devtool-go/"
-                 f"latest/artifacts/linux64/dt "
-                 f"-o /home/{username}/downloads/dt"]),
-
-        # Make the 'dt' file executable
-        ("Making 'dt' executable",
-         "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 f"chmod +x /home/{username}/downloads/dt"]),
-
-        # Execute 'dt' for installation
-        ("Executing 'dt' for installation",
-         "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 f"/home/{username}/downloads/dt install"]),
 
         # Restarting session for changes to take effect
         ("Restarting session for changes to take effect",
@@ -1238,12 +1234,12 @@ def run_user_creation_steps(instance_name: str, username: str, password: str, hi
                     # Alias for shutting down the WSL instance
                     f"echo -e '\\nalias shutdown=\"wsl.exe --terminate \\$WSL_DISTRO_NAME\"' "
                     f">> /home/{username}/.bashrc && "
-        
+
                     # Alias for rebooting the WSL instance
                     f"echo -e '\\nalias reboot=\"wt.exe -w 0 -p {instance_name} -- wsl.exe && "
                     f"wsl.exe --terminate \\$WSL_DISTRO_NAME && wsl.exe\"' "
                     f">> /home/{username}/.bashrc && "
-        
+
                     # Alias for opening the current directory in Windows Explorer
                     f"echo -e '\\nalias start=\"explorer.exe .\"' "
                     f">> /home/{username}/.bashrc"
@@ -1349,12 +1345,15 @@ def run_pre_prerequisites_steps(base_path: str, instance_path: str, bare_linux_i
     Raises:
         StepError: If any step in the process fails.
     """
-    
+
+    global intel_proxy_detected
+
     # This is designed to work at Intel
     if not wsl_runner_is_proxy_available(proxy_server):
         wsl_runner_print_status(TextType.BOTH, "Warning: Intel proxy is not available", True, 1001)
         proxy_server = None
-            
+        intel_proxy_detected = False
+
     steps_commands = [
         # Ensure necessary directories exist
         ("Verifying destination paths", wsl_runner_ensure_directory_exists,
@@ -1400,7 +1399,7 @@ def wsl_runner_check_installed():
         pass
 
     print("IMCv2 SDK for Windows Subsystem for Linux.\n")
-    
+
     # Install help message
     if wsl_version_unknown:
         print("\tWSL is installed but might not be WSL2, to install it:")
@@ -1409,8 +1408,6 @@ def wsl_runner_check_installed():
     print("1. Open Command Prompt or PowerShell as Administrator.")
     print("2. Run: wsl --install --no-distribution")
     print("3. Reboot if prompted, then rerun this installer.")
-
-
 
     return 1  # WSL2 is not installed or not confirmed
 
@@ -1430,8 +1427,8 @@ def wsl_runner_main() -> int:
     parser = argparse.ArgumentParser(description="IMCV2 WSL Runner")
     parser.add_argument("-n", "--name",
                         help="Name of the WSL instance to create (e.g., 'IMCV2').")
-    parser.add_argument("-l", "--last_steps", action='store_true',
-                        help="Execute only the last steps.")
+    parser.add_argument("-t", "--start_step", type=int, default=0,
+                        help="Start execution from a specific step other than 0.")
     parser.add_argument("-b", "--base_path",
                         help=f"Specify alternate base local path to use instead of "
                              f"'{IMCV2_WSL_DEFAULT_BASE_PATH}'.")
@@ -1464,7 +1461,7 @@ def wsl_runner_main() -> int:
 
         username = os.getlogin()
         instance_name = args.name
-        
+
         # Set variables based on default are arguments if provided
         password = args.password if args.password else MCV2_WSL_DEFAULT_PASSWORD
         base_path = args.base_path if args.base_path else IMCV2_WSL_DEFAULT_BASE_PATH
@@ -1480,26 +1477,32 @@ def wsl_runner_main() -> int:
         wsl_runner_show_info()
         sys.stdout.write("\033[?25l")  # Hide the cursor
 
-        # Run setup steps in sequence, by the end of this journey, we should have an instance up and running.
-        if not args.last_steps:
-            run_pre_prerequisites_steps(base_path, instance_path, bare_linux_image_path, ubuntu_url, proxy_server)
-            run_initial_setup_steps(instance_name, instance_path, bare_linux_image_file)
-            run_user_creation_steps(instance_name, username, password)
-            run_time_zone_steps(instance_name)
-            run_kerberos_steps(instance_name)
-            run_user_shell_steps(instance_name, username, proxy_server)
-            run_install_system_packages(instance_name, username, packages_file)
-            run_install_user_packages(instance_name, username, proxy_server)
-            run_install_pyenv(instance_name, username, proxy_server)
+        # Define all steps as a list of tuples (step_name, function_call)
+        steps = [
+            ("Pre-prerequisites",
+             lambda: run_pre_prerequisites_steps(base_path, instance_path, bare_linux_image_path, ubuntu_url,
+                                                 proxy_server)),
+            ("Initial setup", lambda: run_initial_setup_steps(instance_name, instance_path, bare_linux_image_file)),
+            ("User creation", lambda: run_user_creation_steps(instance_name, username, password)),
+            ("Time zone setup", lambda: run_time_zone_steps(instance_name)),
+            ("Kerberos setup", lambda: run_kerberos_steps(instance_name)),
+            ("User shell setup", lambda: run_user_shell_steps(instance_name, username, proxy_server)),
+            ("Install system packages", lambda: run_install_system_packages(instance_name, username, packages_file)),
+            ("Install user packages", lambda: run_install_user_packages(instance_name, username, proxy_server)),
+            ("Install pyenv", lambda: run_install_pyenv(instance_name, username, proxy_server)),
+            ("Post-install steps", lambda: run_post_install_steps(instance_name, username, proxy_server)),
+            ("Create desktop shortcut", lambda: wsl_runner_create_shortcut(instance_name, "IMCv2 SDK")),
+        ]
 
-        run_post_install_steps(instance_name, username, proxy_server)
+        # Execute steps from the specified starting point
+        if args.start_step < 0 or args.start_step >= len(steps):
+            raise ValueError(f"Invalid start step: {args.start_step}. Must be between 0 and {len(steps) - 1}.")
 
-        # Create desktop shortcut
-        wsl_runner_create_shortcut(instance_name, "IMCv2 SDK")
+        for i, (step_name, step_function) in enumerate(steps[args.start_step:], start=args.start_step):
+            step_function()
 
         # Start WSL instance, setup will continue for there.
         wsl_runner_start_wsl_shell()
-
         return 0
 
     except StepError as step_error:
