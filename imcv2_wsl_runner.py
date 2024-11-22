@@ -1358,20 +1358,18 @@ def wsl_runner_check_installed():
     except FileNotFoundError:
         pass
 
-    print("IMCv2 SDK for Windows Subsystem for Linux.")
-    # Provide feedback based on findings
-    if wsl_version_unknown:
-        print("Please note, WSL is installed but might not be WSL2. Please verify your version.")
-    else:
-        print("Please note, WSL2 is not installed.")
-
+    print("IMCv2 SDK for Windows Subsystem for Linux.\n")
+    
     # Install help message
-    print("\nWSL2 is an essential component, to install WSL2, follow these steps:")
-    print("1. Open PowerShell as Administrator.")
-    print("2. Run the following command: wsl --install")
-    print("   This will install WSL and set up WSL2 as the default version.")
-    print("3. Reboot your computer if prompted.")
-    print("4. After rebooting, continue this installer.")
+    if wsl_version_unknown:
+        print("\tWSL is installed but might not be WSL2, to install it:")
+    else:
+        print("WSL2 is not installed, to install it:")
+    print("1. Open Command Prompt or PowerShell as Administrator.")
+    print("2. Run: wsl --install --no-distribution")
+    print("3. Reboot if prompted, then rerun this installer.")
+
+
 
     return 1  # WSL2 is not installed or not confirmed
 
