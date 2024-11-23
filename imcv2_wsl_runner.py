@@ -732,11 +732,11 @@ def run_post_install_steps(instance_name: str, username, proxy_server, hidden: b
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  (
                      f"curl -sS --proxy {proxy_server} "
-                     f"-o /home/{username}/bin/sdk_runner.sh "
+                     f"-o /home/{username}/.imcv2/sdk_runner.sh "
                      "https://raw.githubusercontent.com/emichael72/wsl_starter/main/sdk_runner.sh"
                      if intel_proxy_detected else
                      f"curl -sS "
-                     f"-o /home/{username}/bin/sdk_runner.sh "
+                     f"-o /home/{username}/.imcv2/sdk_runner.sh "
                      "https://raw.githubusercontent.com/emichael72/wsl_starter/main/sdk_runner.sh"
                  )
                  ]),
@@ -744,12 +744,12 @@ def run_post_install_steps(instance_name: str, username, proxy_server, hidden: b
         # Make the SDK Runner executable
         ("Make the SDK runner script executable",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 f"chmod +x /home/{username}/bin/sdk_runner.sh"]),
+                 f"chmod +x /home/{username}/.imcv2/sdk_runner.sh"]),
 
         # Use the SDK Runner to patch bashrc
-        ("Make 'dt' run at startup",
+        ("Make 'sdk_runner' run at startup",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 f"/home/{username}/bin/sdk_runner.sh runner_set_auto_start 1"]),
+                 f"/home/{username}/.imcv2/sdk_runner.sh runner_set_auto_start 1"]),
 
         # Terminate WSL session
         ("Restarting session for changes to take effect",
@@ -1070,9 +1070,9 @@ def run_user_shell_steps(instance_name: str, username: str, proxy_server: str, h
         # Create necessary directories
         ("Create necessary directories",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 f"mkdir -p /home/{username}/downloads /home/{username}/projects /home/{username}/bin && "
+                 f"mkdir -p /home/{username}/downloads /home/{username}/projects /home/{username}/.imcv2 && "
                  f"sudo chown -R {username}:{username} "
-                 f"/home/{username}/downloads /home/{username}/projects /home/{username}/bin"]),
+                 f"/home/{username}/downloads /home/{username}/projects /home/{username}/.imcv2"]),
 
         # Create .hushlogin in the user's home directory
         ("Create .hushlogin in the user's home directory",

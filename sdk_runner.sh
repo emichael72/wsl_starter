@@ -207,8 +207,8 @@ runner_set_auto_start() {
 	local bashrc_path="$HOME/.bashrc"
 	local header="# IMCv2 Auto start 'dt' and IMCv2 SDK install."
 	local auto_start_script="
-if sdk_runner.sh runner_ensure_dt; then
-    sdk_runner.sh runner_install_sdk install /home/\$USER/projects/sdk 1
+if $HOME/sdk_runner.sh runner_ensure_dt; then
+    $HOME/sdk_runner.sh runner_install_sdk install /home/\$USER/projects/sdk 1
 fi
 "
 	# Validate input
@@ -243,7 +243,7 @@ fi
 }
 
 #
-# @brief Manual local Simics installtiopn.e.
+# @brief Manual local Simics installation.e.
 # @return 0 if successful, 1 otherwise.
 #
 
