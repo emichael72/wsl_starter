@@ -258,13 +258,14 @@ def wsl_runner_is_proxy_available(proxy_server: str, timeout: int = 5) -> bool:
         return False
 
 
-def wsl_runner_start_wsl_shell(distribution=None):
+def wsl_runner_start_wsl_shell(distribution=None, timeout=None):
     """
-    Launches an interactive WSL shell. Optionally, specify a distribution.
+    Launches an interactive WSL shell. Optionally, specify a distribution and timeout.
 
     Args:
         distribution (str): The name of the WSL distribution to launch (e.g., 'Ubuntu-20.04').
                             If None, launches the default WSL distribution.
+        timeout (int): Timeout in seconds before forcefully exiting (optional).
     """
     try:
         # Prepare the base command
@@ -272,12 +273,25 @@ def wsl_runner_start_wsl_shell(distribution=None):
         if distribution:
             command.extend(["-d", distribution])
 
+        print(f"Starting {distribution or 'default WSL'}...")
+
         # Start the WSL process
         process = subprocess.Popen(command)
-        
-        # Wait for the WSL process to finish
-        process.wait()
 
+        # Wait for the WSL process to finish or timeout
+        if timeout:
+            start_time = time.time()
+            while process.poll() is None:
+                elapsed_time = time.time() - start_time
+                if elapsed_time > timeout:
+                    print("Timeout reached. Terminating WSL...")
+                    process.terminate()
+                    return
+                time.sleep(1)
+        else:
+            process.wait()
+
+        print("WSL session has ended.")
     except Exception as e:
         print(f"An unexpected error occurred: {e}", file=sys.stderr)
         return 1
