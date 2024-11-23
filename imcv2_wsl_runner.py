@@ -3,7 +3,7 @@
 """
 Script:       imcv2_wsl_runner.py
 Author:       Intel IMCv2 Team
-Version:      1.3.0
+Version:      1.3.1
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -67,7 +67,7 @@ MCV2_WSL_DEFAULT_PASSWORD = "intel@1234"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSLRunner"
-IMCV2_SCRIPT_VERSION = "1.3.0"
+IMCV2_SCRIPT_VERSION = "1.3.1"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Host Installer"
 
 # Spinning characters for progress indication
@@ -258,14 +258,14 @@ def wsl_runner_is_proxy_available(proxy_server: str, timeout: int = 5) -> bool:
         return False
 
 
-def wsl_runner_start_wsl_shell(distribution=None, timeout=None):
+def wsl_runner_start_wsl_shell(distribution=None):
     """
-    Launches an interactive WSL shell. Optionally, specify a distribution and timeout.
+    Launches an interactive WSL shell with stdin, stdout, and stderr pipes.
+    Optionally, specify a distribution.
 
     Args:
         distribution (str): The name of the WSL distribution to launch (e.g., 'Ubuntu-20.04').
                             If None, launches the default WSL distribution.
-        timeout (int): Timeout in seconds before forcefully exiting (optional).
     """
     try:
         # Prepare the base command
@@ -275,21 +275,26 @@ def wsl_runner_start_wsl_shell(distribution=None, timeout=None):
 
         print(f"Starting {distribution or 'default WSL'}...")
 
-        # Start the WSL process
-        process = subprocess.Popen(command)
+        # Start the WSL process with pipes
+        process = subprocess.Popen(
+            command,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
 
-        # Wait for the WSL process to finish or timeout
-        if timeout:
-            start_time = time.time()
-            while process.poll() is None:
-                elapsed_time = time.time() - start_time
-                if elapsed_time > timeout:
-                    print("Timeout reached. Terminating WSL...")
-                    process.terminate()
-                    return
-                time.sleep(1)
-        else:
-            process.wait()
+        # Forward WSL output and handle input interactively
+        while process.poll() is None:
+            try:
+                output = process.stdout.readline()
+                if output:
+                    sys.stdout.write(output)
+                    sys.stdout.flush()
+            except KeyboardInterrupt:
+                print("\nSession interrupted. Exiting...")
+                process.terminate()
+                return
 
         print("WSL session has ended.")
     except Exception as e:
