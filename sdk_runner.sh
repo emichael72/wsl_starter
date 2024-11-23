@@ -10,7 +10,9 @@
 
 runner_auto_run() {
 
-  printf "SDK Auto start.\n"
+  clear
+  print "\033[?25h"  # Restore the cursor
+  printf "\nIMCv2 SDK Autostart..\n"
 
 }
 

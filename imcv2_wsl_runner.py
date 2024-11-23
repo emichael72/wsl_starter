@@ -3,7 +3,7 @@
 """
 Script:       imcv2_wsl_runner.py
 Author:       Intel IMCv2 Team
-Version:      1.2.6
+Version:      1.3.0
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -67,7 +67,7 @@ MCV2_WSL_DEFAULT_PASSWORD = "intel@1234"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSLRunner"
-IMCV2_SCRIPT_VERSION = "1.2.6"
+IMCV2_SCRIPT_VERSION = "1.3.0"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Host Installer"
 
 # Spinning characters for progress indication
@@ -260,24 +260,27 @@ def wsl_runner_is_proxy_available(proxy_server: str, timeout: int = 5) -> bool:
 
 def wsl_runner_start_wsl_shell(distribution=None):
     """
-    Launches an interactive WSL shell in the same terminal window. Optionally, specify a distribution.
+    Launches an interactive WSL shell. Optionally, specify a distribution.
 
     Args:
         distribution (str): The name of the WSL distribution to launch (e.g., 'Ubuntu-20.04').
                             If None, launches the default WSL distribution.
     """
     try:
-        # Prepare the command
+        # Prepare the base command
         command = ["wsl"]
         if distribution:
             command.extend(["-d", distribution])
 
-        print(f"Starting {distribution or 'default WSL'} in the current window...")
-        os.execvp("wsl", command)
-    except FileNotFoundError:
-        print("Error: WSL is not installed or not in the system PATH.", file=sys.stderr)
+        # Start the WSL process
+        process = subprocess.Popen(command)
+        
+        # Wait for the WSL process to finish
+        process.wait()
+
     except Exception as e:
         print(f"An unexpected error occurred: {e}", file=sys.stderr)
+        return 1
 
 
 def wsl_runner_spinner_thread():
@@ -1483,14 +1486,11 @@ def wsl_runner_check_installed():
 def wsl_runner_main() -> int:
     """
     Main entry point for the IMCV2 WSL Runner script.
-
     Parses command-line arguments, initializes paths and configurations, and runs the setup process in sequence.
 
     Returns:
         int: Exit code (0 for success, 1 for failure).
     """
-
-    os.system('cls')
 
     parser = argparse.ArgumentParser(description="IMCV2 WSL Runner")
     parser.add_argument("-n", "--name",
@@ -1577,11 +1577,9 @@ def wsl_runner_main() -> int:
 
         for i, (step_name, step_function) in enumerate(steps[args.start_step:], start=args.start_step):
             step_function()
-
+        
         # Start WSL instance, setup will continue for there.
         wsl_runner_start_wsl_shell(instance_name)
-        time.sleep(1)
-
         return 0
 
     except StepError as step_error:
