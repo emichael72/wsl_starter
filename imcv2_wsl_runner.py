@@ -3,7 +3,7 @@
 """
 Script:       imcv2_wsl_runner.py
 Author:       Intel IMCv2 Team
-Version:      1.1.4
+Version:      1.1.5
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -67,7 +67,7 @@ MCV2_WSL_DEFAULT_PASSWORD = "intel@1234"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSLRunner"
-IMCV2_SCRIPT_VERSION = "1.1.4"
+IMCV2_SCRIPT_VERSION = "1.1.5"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Host Installer"
 
 # Spinning characters for progress indication
@@ -88,14 +88,14 @@ class StepError(Exception):
     pass
 
 
-class InfoType(Enum):
+class InfoType(int, Enum):
     """
     Enum to specify the type of event display for status messages.
 
     """
-    STEP_OK = 0
-    STEPS_DONE = 1000
+    OK = 0
     WARNING = 1001
+    DONE = 1000
 
 
 class TextType(Enum):
@@ -119,7 +119,7 @@ class TextType(Enum):
 def wsl_runner_get_office_user_identity():
     """
     Extract ADUserDisplayName and ADUserName from the Windows Registry.
-    Tries Office 16.0 first, then 15.0.
+    Tries Office 16.0 and 15.0 first, then falls back to Common UserInfo.
 
     Returns:
         tuple: (Full name, Corporate email) if found, otherwise None.
@@ -129,6 +129,7 @@ def wsl_runner_get_office_user_identity():
         r"Software\Microsoft\Office\15.0\Common\Identity"
     ]
 
+    # Try to extract from Identity registry paths
     for path in registry_paths:
         try:
             with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path) as key:
@@ -140,10 +141,21 @@ def wsl_runner_get_office_user_identity():
             continue
         except Exception as e:
             print(f"Error reading registry path {path}: {e}")
-            return None
+            return None, None
+
+    # Fallback to Common UserInfo if no identity is found
+    fallback_path = r"Software\Microsoft\Office\Common\UserInfo"
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, fallback_path) as key:
+            display_name = winreg.QueryValueEx(key, "UserName")[0]
+            return display_name, None  # No email in this case
+    except FileNotFoundError:
+        print(f"Registry path {fallback_path} not found.")
+    except Exception as e:
+        print(f"Error reading fallback registry path {fallback_path}: {e}")
 
     # If no identity is found in any of the paths
-    return None
+    return None, None
 
 
 def wsl_runner_print_logo():
@@ -480,7 +492,7 @@ def wsl_runner_print_status(
         text_type: TextType,
         description: Optional[str],
         new_line: bool = False,
-        ret_val: int = 0
+        ret_val: InfoType = InfoType.OK
 ):
     """
     Prints the status message to the console in a formatted manner with color codes.
@@ -489,7 +501,7 @@ def wsl_runner_print_status(
         text_type (TextType): PREFIX, SUFFIX, or BOTH.
         description (str, None): The message to display. If None, it defaults to an empty string.
         new_line (bool): If True, prints a new line after the status; otherwise overwrites the same line.
-        ret_val (int): The status code to display. 0 = OK, 124 = TIMEOUT, others = ERROR.
+        ret_val (InfoType or int): The status code to display. 0 = OK, 124 = TIMEOUT, others = ERROR.
     """
 
     if text_type not in TextType:
@@ -503,6 +515,9 @@ def wsl_runner_print_status(
     reset = "\033[0m"
 
     max_length = 60
+
+    if isinstance(ret_val, InfoType):
+        ret_val = int(ret_val)
 
     # Handle PREFIX or BOTH types
     if text_type in {TextType.BOTH, TextType.PREFIX} and description:
@@ -523,11 +538,11 @@ def wsl_runner_print_status(
         # Stop spinner
         wsl_runner_set_spinner(False)
 
-        if ret_val == 0:
+        if ret_val == InfoType.OK:
             pass
-        elif ret_val == 1000:  # Special code for step completed.
+        elif ret_val == InfoType.DONE:  # Special code for step completed.
             sys.stdout.write(f"{green} OK{reset}")
-        elif ret_val == 1001:  # Special code for step completed.
+        elif ret_val == InfoType.WARNING:  # Special code for step completed.
             sys.stdout.write(f"{yellow} Warning{reset}")
         else:
             if ret_val == 124:
@@ -750,7 +765,7 @@ def run_post_install_steps(instance_name: str, username, proxy_server, hidden: b
             raise StepError(f"Failed during step: {description}")
 
     # Print success message
-    wsl_runner_print_status(TextType.BOTH, "WSL post-installation steps completed", True, 1000)
+    wsl_runner_print_status(TextType.BOTH, "WSL post-installation steps completed", True, InfoType.DONE)
 
 
 def run_install_pyenv(instance_name, username, proxy_server, hidden=True, new_line=False):
@@ -852,7 +867,7 @@ def run_install_pyenv(instance_name, username, proxy_server, hidden=True, new_li
                                   ignore_errors=ignore_errors) != 0:
             raise StepError(f"Failed during step: {description}")
 
-    wsl_runner_print_status(TextType.BOTH, "Python 3.9 via 'pyenv' installation", True, 1000)
+    wsl_runner_print_status(TextType.BOTH, "Python 3.9 via 'pyenv' installation", True, InfoType.DONE)
 
 
 def run_install_user_packages(instance_name, username, proxy_server, hidden=True, new_line=False):
@@ -921,7 +936,7 @@ def run_install_user_packages(instance_name, username, proxy_server, hidden=True
                                   ignore_errors=ignore_errors) != 0:
             raise StepError(f"Failed during step: {description}")
 
-    wsl_runner_print_status(TextType.BOTH, "User package installation", True, 1000)
+    wsl_runner_print_status(TextType.BOTH, "User package installation", True, InfoType.DONE)
 
 
 def run_install_system_packages(instance_name, username, packages_file, hidden=True, new_line=False, timeout=120):
@@ -942,7 +957,7 @@ def run_install_system_packages(instance_name, username, packages_file, hidden=T
         line_count = sum(1 for _ in file)
 
     if line_count == 0:
-        wsl_runner_print_status(TextType.BOTH, "Empty packages file", True, 1000)
+        wsl_runner_print_status(TextType.BOTH, "Empty packages file", True, InfoType.DONE)
         return 0
 
     wsl_windows_packages_file = wsl_runner_win_to_wsl_path(packages_file)
@@ -994,7 +1009,7 @@ def run_install_system_packages(instance_name, username, packages_file, hidden=T
                                   timeout=timeout, ignore_errors=ignore_errors) != 0:
             raise StepError(f"Failed during step: {description}")
 
-    wsl_runner_print_status(TextType.BOTH, "Ubuntu system package installation", True, 1000)
+    wsl_runner_print_status(TextType.BOTH, "Ubuntu system package installation", True, InfoType.DONE)
 
 
 def run_user_shell_steps(instance_name: str, username: str, proxy_server: str, hidden: bool = True,
@@ -1033,7 +1048,7 @@ def run_user_shell_steps(instance_name: str, username: str, proxy_server: str, h
                  f"echo 'export https_proxy={proxy_server}' >> /home/{username}/.bashrc"]),
 
         # Set full name in .bashrc if corp_name is not None
-        (
+        *(
             [(
                 f"Setting full name",
                 "wsl", ["-d", instance_name, "--", "bash", "-c",
@@ -1043,7 +1058,7 @@ def run_user_shell_steps(instance_name: str, username: str, proxy_server: str, h
         ),
 
         # Set email address in .bashrc if corp_email is not None
-        (
+        *(
             [(
                 f"Setting email address",
                 "wsl", ["-d", instance_name, "--", "bash", "-c",
@@ -1078,7 +1093,7 @@ def run_user_shell_steps(instance_name: str, username: str, proxy_server: str, h
             raise StepError(f"Failed during step: {description}")
 
     # Print success message
-    wsl_runner_print_status(TextType.BOTH, "Setting user shell defaults", True, 1000)
+    wsl_runner_print_status(TextType.BOTH, "Setting user shell defaults", True, InfoType.DONE)
 
 
 def run_kerberos_steps(instance_name: str, hidden: bool = True, new_line: bool = False):
@@ -1321,7 +1336,7 @@ def run_user_creation_steps(instance_name: str, username: str, password: str, hi
             raise StepError(f"Failed during step: {description}")
 
     # Print success message
-    wsl_runner_print_status(TextType.BOTH, "Creating user account", True, 1000)
+    wsl_runner_print_status(TextType.BOTH, "Creating user account", True, InfoType.DONE)
 
 
 def run_initial_setup_steps(instance_name: str, instance_path: str, bare_linux_image_path: str,
@@ -1373,7 +1388,7 @@ def run_initial_setup_steps(instance_name: str, instance_path: str, bare_linux_i
             raise StepError(f"Failed during step: {description}")
 
     # Print success message
-    wsl_runner_print_status(TextType.BOTH, "WSL environment startup completed", True, 1000)
+    wsl_runner_print_status(TextType.BOTH, "WSL environment startup completed", True, InfoType.DONE)
 
 
 def run_pre_prerequisites_steps(base_path: str, instance_path: str, bare_linux_image_path: str,
@@ -1414,7 +1429,7 @@ def run_pre_prerequisites_steps(base_path: str, instance_path: str, bare_linux_i
             raise StepError(f"Failed during step: {description}")
 
     # Print success message
-    wsl_runner_print_status(TextType.BOTH, "Prerequisites satisfied", True, 1000)
+    wsl_runner_print_status(TextType.BOTH, "Prerequisites satisfied", True, InfoType.DONE)
 
 
 def wsl_runner_check_installed():
@@ -1519,7 +1534,7 @@ def wsl_runner_main() -> int:
 
         # This is designed to work at Intel
         if not wsl_runner_is_proxy_available(proxy_server):
-            wsl_runner_print_status(TextType.BOTH, "Intel proxy is not available", True, 1001)
+            wsl_runner_print_status(TextType.BOTH, "Intel proxy is not available", True, InfoType.WARNING)
             intel_proxy_detected = False
 
         # Define all steps as a list of tuples (step_name, function_call)
