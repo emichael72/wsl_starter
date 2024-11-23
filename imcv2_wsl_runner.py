@@ -3,7 +3,7 @@
 """
 Script:       imcv2_wsl_runner.py
 Author:       Intel IMCv2 Team
-Version:      1.1.6
+Version:      1.1.7
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -67,7 +67,7 @@ MCV2_WSL_DEFAULT_PASSWORD = "intel@1234"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSLRunner"
-IMCV2_SCRIPT_VERSION = "1.1.6"
+IMCV2_SCRIPT_VERSION = "1.1.7"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Host Installer"
 
 # Spinning characters for progress indication
@@ -687,6 +687,29 @@ def wsl_runner_create_shortcut(instance_name: str, shortcut_name: str) -> int:
         else:
             return 1
 
+    except Exception as e:
+        print(f"An exception occurred: {e}", file=sys.stderr)
+        return 1
+
+
+def wsl_runner_delete_shortcut(shortcut_name: str) -> int:
+    """
+    Deletes a desktop shortcut.
+
+    Args:
+        shortcut_name (str): The name of the desktop shortcut to delete.
+
+    Returns:
+        int: 0 if the shortcut is deleted successfully, 1 otherwise.
+    """
+    try:
+        desktop_dir = wsl_runner_get_desktop_path()
+        shortcut_path = os.path.join(desktop_dir, f"{shortcut_name}.lnk")
+
+        if os.path.exists(shortcut_path):
+            os.remove(shortcut_path)
+            return 0
+        return 1  # Shortcut not found
     except Exception as e:
         print(f"An exception occurred: {e}", file=sys.stderr)
         return 1
@@ -1503,6 +1526,9 @@ def wsl_runner_main() -> int:
         return 1
 
     try:
+
+        # Remove current shortcut (if exist)
+        wsl_runner_delete_shortcut("IMCv2 SDK")
 
         username = os.getlogin()
         instance_name = args.name

@@ -1,5 +1,7 @@
 #!/bin/bash
 # shellcheck disable=SC2317
+# shellcheck disable=SC2059
+# shellcheck disable=SC2181
 
 #
 # @brief Auto start entry point.
@@ -236,7 +238,7 @@ runner_set_auto_start() {
 
 		# Append new auto-start block
 		{
-			echo "\n"
+			echo
 			echo "$header"
 			echo "$auto_start_script"
 		} >>"$bashrc_path"
