@@ -3,7 +3,7 @@
 """
 Script:       imcv2_wsl_runner.py
 Author:       Intel IMCv2 Team
-Version:      1.3.2
+Version:      1.3.3
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -66,9 +66,9 @@ IMCV2_WSL_DEFAULT_PACKAGES_URL = "https://raw.githubusercontent.com/emichael72/w
 MCV2_WSL_DEFAULT_PASSWORD = "intel@1234"
 
 # Script version
-IMCV2_SCRIPT_NAME = "WSLRunner"
-IMCV2_SCRIPT_VERSION = "1.3.2"
-IMCV2_SCRIPT_DESCRIPTION = "WSL Host Installer"
+IMCV2_SCRIPT_NAME = "WSLCreator"
+IMCV2_SCRIPT_VERSION = "1.3.3"
+IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # Spinning characters for progress indication
 spinner_active = False
@@ -260,30 +260,29 @@ def wsl_runner_is_proxy_available(proxy_server: str, timeout: int = 5) -> bool:
 
 def wsl_runner_start_wsl_shell(distribution=None):
     """
-    Launches an interactive WSL shell. Optionally, specify a distribution.
+    Launches WSL in Windows Terminal, optionally specifying a distribution.
+    Tries to open in the same window if possible.
 
     Args:
-        distribution (str): The name of the WSL distribution to launch (e.g., 'Ubuntu-20.04').
-                            If None, launches the default WSL distribution.
+        distribution (str): The name of the WSL distribution (e.g., "IMCv2").
+                            If None, the default WSL profile is used.
     """
     try:
-        # Prepare the base command
-        command = ["wsl"]
+        # Base command for Windows Terminal
+        command = ["wt", "-w", "last"]
+
+        # Add the profile or default WSL launch command
         if distribution:
-            command.extend(["-d", distribution])
-
-        print(f"Starting {distribution or 'default WSL'}...")
-
-        # Start the WSL process
-        process = subprocess.Popen(command,shell=True)
-
-        # Wait for the WSL process to finish
-        process.wait()
-
-        print("WSL session has ended.")
+            command.extend(["-p", distribution])  # Add profile name as a string
+        else:
+            command.append("wsl")  # Launch default WSL distribution
+        subprocess.run(command, check=True)
+    except FileNotFoundError:
+        print("Error: Windows Terminal (`wt`) is not installed or not in the system PATH.")
+    except subprocess.CalledProcessError as e:
+        print(f"Windows Terminal exited with an error: {e}")
     except Exception as e:
-        print(f"An unexpected error occurred: {e}", file=sys.stderr)
-        return 1
+        print(f"An unexpected error occurred: {e}")
 
 
 def wsl_runner_spinner_thread():
@@ -1580,10 +1579,11 @@ def wsl_runner_main() -> int:
 
         for i, (step_name, step_function) in enumerate(steps[args.start_step:], start=args.start_step):
             step_function()
-        
+
+        print("\nImage creation completed, you may close this window.\n")
+
         # Start WSL instance, setup will continue for there.
         wsl_runner_start_wsl_shell(instance_name)
-
         return 0
 
     except StepError as step_error:
