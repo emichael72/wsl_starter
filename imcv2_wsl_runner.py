@@ -267,6 +267,8 @@ def wsl_runner_start_wsl_shell(distribution=None):
                             If None, launches the default WSL distribution.
     """
     try:
+        print (f"Starting  {distribution}..")
+
         # Prepare the base command
         command = ["wsl"]
         if distribution:
@@ -1585,7 +1587,7 @@ def wsl_runner_main() -> int:
             step_function()
 
         # Start WSL instance, setup will continue for there.
-        wsl_runner_start_wsl_shell()
+        wsl_runner_start_wsl_shell(instance_name)
         return 0
 
     except StepError as step_error:
