@@ -268,16 +268,22 @@ def wsl_runner_start_wsl_shell(distribution=None):
     """
     try:
         # Prepare the base command
-        command = ["wsl.exe"]
+        command = ["wsl"]
         if distribution:
             command.extend(["-d", distribution])
 
-        # Start the interactive shell
-        subprocess.run(command, shell=True)
+        # Start the interactive shell and attach stdin/stdout
+        process = subprocess.run(command, check=True)
+        return process.returncode
     except FileNotFoundError:
-        print("Error: WSL is not installed or not in the system PATH.")
+        print("Error: WSL is not installed or not in the system PATH.", file=sys.stderr)
+        return 1
+    except subprocess.CalledProcessError as e:
+        print(f"WSL process exited with an error: {e}", file=sys.stderr)
+        return 1
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        print(f"An unexpected error occurred: {e}", file=sys.stderr)
+        return 1
 
 
 def wsl_runner_spinner_thread():
