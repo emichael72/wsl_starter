@@ -1,4 +1,16 @@
 #!/bin/bash
+# shellcheck disable=SC2317
+
+#
+# @brief Auto start entry point.
+# @return 0 if successful, 1 otherwise.
+#
+
+runner_auto_run() {
+
+  printf "SDK Auto start.\n"
+
+}
 
 #
 # @brief Generates the .gitconfig file based on the provided template.
@@ -62,7 +74,6 @@ runner_ensure_dt() {
 	# Define ANSI color codes
 	yellow="\033[93m"
 	light_blue="\033[94m"
-	red="\033[91m"
 	reset="\033[0m"
 	bright_white="\033[97m"
 
@@ -101,7 +112,7 @@ runner_ensure_dt() {
 	fi
 
 	# Return the exit code of the setup command if the token still could not be generated
-	return $setup_exit_code
+	return "$setup_exit_code"
 }
 
 #
@@ -182,7 +193,7 @@ runner_install_sdk() {
 			echo "Error: SDK installation failed with exit code $exit_code."
 			echo "This instance will keep trying. Please reopen this window to try again."
 		fi
-		return $exit_code
+		return "$exit_code"
 		;;
 	*)
 		echo "Error: Invalid action: $action. Use 'install' or 'uninstall'."
@@ -205,12 +216,8 @@ runner_set_auto_start() {
 
 	local enable="$1"
 	local bashrc_path="$HOME/.bashrc"
-	local header="# IMCv2 Auto start 'dt' and IMCv2 SDK install."
-	local auto_start_script="
-if $HOME/sdk_runner.sh runner_ensure_dt; then
-    $HOME/sdk_runner.sh runner_install_sdk install /home/\$USER/projects/sdk 1
-fi
-"
+	local header="# IMCv2 SDK Auto start."
+	local auto_start_script="$HOME/.imcv2/sdk_runner.sh runner_auto_run"
 	# Validate input
 	if [[ "$enable" != "0" && "$enable" != "1" ]]; then
 		echo "Error: Invalid argument. Use 1 to enable or 0 to disable."
@@ -229,6 +236,7 @@ fi
 
 		# Append new auto-start block
 		{
+			echo "\n"
 			echo "$header"
 			echo "$auto_start_script"
 		} >>"$bashrc_path"

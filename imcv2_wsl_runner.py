@@ -3,7 +3,7 @@
 """
 Script:       imcv2_wsl_runner.py
 Author:       Intel IMCv2 Team
-Version:      1.1.5
+Version:      1.1.6
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -67,7 +67,7 @@ MCV2_WSL_DEFAULT_PASSWORD = "intel@1234"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSLRunner"
-IMCV2_SCRIPT_VERSION = "1.1.5"
+IMCV2_SCRIPT_VERSION = "1.1.6"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Host Installer"
 
 # Spinning characters for progress indication
@@ -197,13 +197,13 @@ def wsl_runner_show_info(show_logo: bool = False):
     if show_logo:
         wsl_runner_print_logo()
 
-    sys.stdout.write(f"Welcome to the {bright_white}IMCv2 SDK-WSL{reset} v{IMCV2_SCRIPT_VERSION} Image Creator!\n")
+    sys.stdout.write(f"\nWelcome to the {bright_white}IMCv2 SDK-WSL{reset} v{IMCV2_SCRIPT_VERSION} Image Creator!\n")
     sys.stdout.write(f"We're setting up your environment—here's what's next:\n\n")
     sys.stdout.write(f"{bold}{green}1.{reset} Download a compatible Ubuntu image (ubuntu-base-24.04.1).\n")
     sys.stdout.write(f"{bold}{green}2.{reset} Create and import a new WSL Linux instance.\n")
     sys.stdout.write(f"{bold}{green}3.{reset} Configure environment settings.\n")
     sys.stdout.write(f"{bold}{green}4.{reset} Install essential packages for the {bright_white}IMCv2{reset} SDK.\n\n")
-    sys.stdout.write(f"⚠️ Please keep your PC connected to {bright_blue}Intel{reset} throughout.\n\n")
+    sys.stdout.write(f"Please keep your PC connected to {bright_blue}Intel{reset} throughout.\n\n")
     sys.stdout.flush()
 
 
@@ -1308,15 +1308,6 @@ def run_user_creation_steps(instance_name: str, username: str, password: str, hi
                 )
             ]
         ),
-
-        # Add custom greeting message to .bashrc
-        ("Adding custom greeting message to .bashrc",
-         "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 f"cat << 'EOF' >> /home/{username}/.bashrc\n"
-                 f"clear\n"
-                 f"printf \"Welcome to IMCv2️ SDK for WSL2.\\n\"\n"
-                 f"printf \"IMCv2 Team 2024.\\n\\n\"\n"
-                 f"EOF"]),
 
         # Set user section in /etc/wsl.conf
         ("Setting default user in /etc/wsl.conf",
