@@ -3,7 +3,7 @@
 """
 Script:       imcv2_wsl_runner.py
 Author:       Intel IMCv2 Team
-Version:      1.3.1
+Version:      1.3.2
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -67,7 +67,7 @@ MCV2_WSL_DEFAULT_PASSWORD = "intel@1234"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSLRunner"
-IMCV2_SCRIPT_VERSION = "1.3.1"
+IMCV2_SCRIPT_VERSION = "1.3.2"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Host Installer"
 
 # Spinning characters for progress indication
@@ -260,8 +260,7 @@ def wsl_runner_is_proxy_available(proxy_server: str, timeout: int = 5) -> bool:
 
 def wsl_runner_start_wsl_shell(distribution=None):
     """
-    Launches an interactive WSL shell with stdin, stdout, and stderr pipes.
-    Optionally, specify a distribution.
+    Launches an interactive WSL shell. Optionally, specify a distribution.
 
     Args:
         distribution (str): The name of the WSL distribution to launch (e.g., 'Ubuntu-20.04').
@@ -275,26 +274,11 @@ def wsl_runner_start_wsl_shell(distribution=None):
 
         print(f"Starting {distribution or 'default WSL'}...")
 
-        # Start the WSL process with pipes
-        process = subprocess.Popen(
-            command,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
-        )
+        # Start the WSL process
+        process = subprocess.Popen(command,shell=True)
 
-        # Forward WSL output and handle input interactively
-        while process.poll() is None:
-            try:
-                output = process.stdout.readline()
-                if output:
-                    sys.stdout.write(output)
-                    sys.stdout.flush()
-            except KeyboardInterrupt:
-                print("\nSession interrupted. Exiting...")
-                process.terminate()
-                return
+        # Wait for the WSL process to finish
+        process.wait()
 
         print("WSL session has ended.")
     except Exception as e:
@@ -1599,6 +1583,7 @@ def wsl_runner_main() -> int:
         
         # Start WSL instance, setup will continue for there.
         wsl_runner_start_wsl_shell(instance_name)
+
         return 0
 
     except StepError as step_error:
