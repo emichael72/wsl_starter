@@ -11,7 +11,8 @@
 runner_auto_run() {
 
   clear
-  print "\033[?25h"  # Restore the cursor
+  # Restore the cursor
+  echo -e "\033[?25h"
   printf "\nIMCv2 SDK Autostart..\n"
 
 }
