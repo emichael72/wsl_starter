@@ -3,7 +3,7 @@
 """
 Script:       imcv2_wsl_runner.py
 Author:       Intel IMCv2 Team
-Version:      1.2.0
+Version:      1.2.1
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -67,7 +67,7 @@ MCV2_WSL_DEFAULT_PASSWORD = "intel@1234"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSLRunner"
-IMCV2_SCRIPT_VERSION = "1.2.0"
+IMCV2_SCRIPT_VERSION = "1.2.1"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Host Installer"
 
 # Spinning characters for progress indication
@@ -267,22 +267,15 @@ def wsl_runner_start_wsl_shell(distribution=None):
                             If None, launches the default WSL distribution.
     """
     try:
-        print (f"Starting  {distribution}..")
-
         # Prepare the base command
-        command = ["cmd /k wsl"]
+        base_command = "cmd /c wsl"
         if distribution:
-            command.extend(["-d", distribution])
+            command = f"{base_command} -d {distribution}"
+        else:
+            command = base_command
 
-        # Start the interactive shell and attach stdin/stdout
-        process = subprocess.run(command, check=True)
-        return process.returncode
-    except FileNotFoundError:
-        print("Error: WSL is not installed or not in the system PATH.", file=sys.stderr)
-        return 1
-    except subprocess.CalledProcessError as e:
-        print(f"WSL process exited with an error: {e}", file=sys.stderr)
-        return 1
+        # Execute the command
+        os.system(command)
     except Exception as e:
         print(f"An unexpected error occurred: {e}", file=sys.stderr)
         return 1
