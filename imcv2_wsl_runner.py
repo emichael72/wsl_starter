@@ -3,7 +3,7 @@
 """
 Script:       imcv2_wsl_runner.py
 Author:       Intel IMCv2 Team
-Version:      1.2.3
+Version:      1.2.4
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -67,7 +67,7 @@ MCV2_WSL_DEFAULT_PASSWORD = "intel@1234"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSLRunner"
-IMCV2_SCRIPT_VERSION = "1.2.3"
+IMCV2_SCRIPT_VERSION = "1.2.4"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Host Installer"
 
 # Spinning characters for progress indication
@@ -276,7 +276,7 @@ def wsl_runner_start_wsl_shell(distribution=None):
 
         # Detach the WSL process
         if os.name == 'nt':  # Windows-specific detachment
-            subprocess.Popen(command, creationflags=subprocess.CREATE_NEW_CONSOLE)
+            subprocess.Popen(command, creationflags=subprocess.DETACHED_PROCESS)
         else:
             subprocess.Popen(command, start_new_session=True)
     except Exception as e:
