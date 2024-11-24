@@ -2,6 +2,7 @@
 # shellcheck disable=SC2317
 # shellcheck disable=SC2059
 # shellcheck disable=SC2181
+# shfmt -i 0 -w imcv2_sdk_runner.sh
 
 # ------------------------------------------------------------------------------
 #
@@ -12,6 +13,9 @@
 # Author:       Intel IMCv2 Team.
 #
 # ------------------------------------------------------------------------------
+
+# Script global variables
+script_version="1.0"
 
 #
 # @brief Generates the .gitconfig file based on the provided template.
@@ -36,8 +40,7 @@ runner_create_git_config() {
 
 	# Check if the template exists
 	if [[ ! -f "$template_name" ]]; then
-		echo "Error: Template file '$template_name' not found."
-		return 1
+		return 0
 	fi
 
 	# Generate the .gitconfig file by replacing placeholders
@@ -46,14 +49,54 @@ runner_create_git_config() {
 		-e "s|{corp_name}|$full_name|g" \
 		"$template_name" >"$output_file"
 
-	# Check if the output file was created successfully
+	# Check if the output file was created successfully, if so delete the template
+	# to prevent future modifications.
 	if [[ $? -eq 0 && -f "$output_file" ]]; then
-		echo "Git configuration file created successfully: $output_file"
+		rm -f $template_name >/dev/null 2>&1
 		return 0
 	else
 		echo "Error: Failed to create git configuration file."
 		return 1
 	fi
+}
+
+#
+# @brief Ensures the auto-start configuration for IMCv2 SDK is correctly pinned at the end of the user's .bashrc file.
+#
+# This function appends the necessary lines to .bashrc to ensure the IMCv2 SDK runner script
+# is executed on shell startup. If the lines are already present but not at the end, they
+# are moved to the end of the file.
+#
+# @details
+# - Detects the current script path dynamically.
+# - Ensures no duplicate entries in .bashrc.
+# - Appends the auto-start configuration in a clean and predictable way.
+# @return 0 if the desired lines are already correctly positioned, 1 otherwise.
+#
+
+runner_pin_auto_start() {
+
+	local bashrc_file="$HOME/.bashrc"
+	local marker="# IMCv2 SDK Auto start."
+	local script_path="${BASH_SOURCE[0]}" # Dynamically get the current script path
+
+	# Construct the expected content
+	local expected_content="$marker
+$script_path"
+
+	# Check if the last lines of the .bashrc file match the expected content
+	if tail -n 2 "$bashrc_file" | grep -Fxq "$expected_content"; then
+		return 0 # Already correctly positioned
+	fi
+
+	# If the marker exists elsewhere, remove it
+	if grep -Fxq "$marker" "$bashrc_file"; then
+		sed -i "/^$marker$/,/^\/home\/.*\/imcv2_sdk_runner.sh$/d" "$bashrc_file"
+	fi
+
+	# Append the content to the end of the file
+	echo -e "$expected_content" >>"$bashrc_file"
+	return 1 # Modifications were made
 }
 
 #
@@ -68,19 +111,14 @@ runner_ensure_dt() {
 	local dt_path="/home/$USER/bin/dt"
 	local netrc_path="/home/$USER/.netrc"
 	local github_url="https://github.com/intel-innersource/firmware.ethernet.imcv2"
-	local clear_screen_cmd="clear"
+	local dt_tool_url="https://gfx-assets.intel.com/artifactory/gfx-build-assets/build-tools/devtool-go/latest/artifacts/linux64/dt"
+	local dt_download_path="$HOME/downloads/dt"
 
 	# Define ANSI color codes
 	yellow="\033[93m"
 	light_blue="\033[94m"
 	reset="\033[0m"
 	bright_white="\033[97m"
-
-	# Check if 'dt' is installed
-	if [[ ! -f "$dt_path" ]]; then
-		echo "Error: 'dt' (devtool) is not installed. Please install it to proceed."
-		return 1
-	fi
 
 	# Check for .netrc and attempt to get a token
 	if [[ -f "$netrc_path" ]]; then
@@ -91,17 +129,44 @@ runner_ensure_dt() {
 	fi
 
 	# If no .netrc or token could not be generated
-	$clear_screen_cmd
-	# Print the message
-	printf "\n\n${bright_white}IMCv2${reset} Installer, welcome to '${yellow}dt${reset}' (devtool) setup.\n"
-	echo -------------------------------------------------
+	# Print welcome message
+	clear
+	printf "\nIMCv2 'dt' Installer.\n"
+	printf -- "--------------------------------\n\n"
 
-	printf "\nThis tool is an essential for enabling this WSL instance to\n"
+	printf "This tool is an essential for enabling this WSL instance to\n"
 	printf "access ${light_blue}Intel${reset} inner sources, including the ${bright_white}IMCv2${reset} repository.\n"
 	printf "${yellow}Note:${reset} You need a registered GitHub account and must have completed\n"
 	printf "all onboarding steps: https://1source.intel.com/onboard\n\n"
 
-	"$dt_path" setup github-auth --force
+	# Check if 'dt' is installed
+	if [[ ! -f "$dt_path" ]]; then
+
+		# Get it silently
+		curl -s -S --noproxy '*' -k -L "$dt_tool_url" -o "$dt_download_path" 2>/dev/null
+
+		# Check if download went OK
+		if [[ $? -ne 0 || ! -f "$dt_download_path" ]]; then
+			printf "Error: Failed to download 'dt' tool\n"
+			return 1
+		fi
+
+		# Make it executable
+		chmod +x "$dt_download_path" 2>/dev/null
+		if [[ $? -ne 0 ]]; then
+			printf "Error: Failed to make 'dt' executable\n"
+			return 1
+		fi
+
+		# Execute 'dt' for installation
+		"$dt_download_path" install >/dev/null 2>&1
+		if [[ $? -ne 0 ]]; then
+			printf "Error: 'dt' could not be installed\n"
+			return 1
+		fi
+	fi
+
+	"$dt_path" setup
 	local setup_exit_code=$?
 
 	# Attempt to generate token again
@@ -186,8 +251,7 @@ runner_install_sdk() {
 		local exit_code=$?
 
 		if [[ $exit_code -eq 0 ]]; then
-			# Remove auto start in bashrc
-			runner_set_auto_start 0
+			return 0
 		else
 			echo "Error: SDK installation failed with exit code $exit_code."
 			echo "This instance will keep trying. Please reopen this window to try again."
@@ -199,54 +263,6 @@ runner_install_sdk() {
 		return 1
 		;;
 	esac
-}
-
-#
-# @brief Enables or disables auto-start for IMCv2 SDK setup in .bashrc.
-# @param[in] 1 Enable flag: 1 to enable, 0 to disable.
-# When enabled:
-#   - Adds auto-start steps to .bashrc, ensuring existing entries are updated.
-# When disabled:
-#   - Removes any auto-start entries from .bashrc.
-# @return 0 if successful, 1 otherwise.
-#
-
-runner_set_auto_start() {
-
-	local enable="$1"
-	local bashrc_path="$HOME/.bashrc"
-	local header="# IMCv2 SDK Auto start."
-	local auto_start_script="$HOME/.imcv2/bin/sdk_runner.sh"
-	# Validate input
-	if [[ "$enable" != "0" && "$enable" != "1" ]]; then
-		echo "Error: Invalid argument. Use 1 to enable or 0 to disable."
-		return 1
-	fi
-
-	# Backup .bashrc before modifying
-	if [[ ! -f "$bashrc_path.bak" ]]; then
-		cp "$bashrc_path" "$bashrc_path.bak"
-	fi
-
-	if [[ "$enable" -eq 1 ]]; then
-		# Enable auto-start
-		# Remove any existing auto-start block to avoid duplicates
-		sed -i "/$header/,/fi/d" "$bashrc_path"
-
-		# Append new auto-start block
-		{
-			echo
-			echo "$header"
-			echo "$auto_start_script"
-		} >>"$bashrc_path"
-
-		return 0
-	else
-		# Disable auto-start
-		# Remove the auto-start block
-		sed -i "/$header/,/fi/d" "$bashrc_path"
-		return 0
-	fi
 }
 
 #
@@ -325,34 +341,62 @@ runner_get_simics() {
 	return 0
 }
 
-# Ensure the script can invoke functions by name
-if declare -f "$1" >/dev/null; then
-	# Call the function with the remaining arguments
-	"$@"
-	exit $?
-else
-	echo "Error: '$1' is not a recognized function name."
-	exit 1
-fi
-
 #
-# @brief https://en.wikipedia.org/wiki/Entry_point
+# @brief Main entry point for the script.
+# @details
+# - Sets up the IMCv2 environment by creating Git configuration,
+#   ensuring devtools are installed, installing the SDK if needed,
+#   and pinning the auto-start configuration.
+# @see https://en.wikipedia.org/wiki/Entry_point
 # @param "$@" Command-line arguments passed to the script.
-# @return 0 | 1
+# @return 0 on success, propagates the return value of runner_install_sdk otherwise.
 #
 
 main() {
 
-  clear
-  # Restore the cursor
-  echo -e "\033[?25h"
-  runner_ensure_dt
+	local git_template_path="/home/$USER/downloads/imcv2_git_config.template"
+	local sdk_install_path="/home/$USER/projects/sdk"
+	local result=0
+	local ansi_cyan="\033[96m"
+	local ansi_green="\033[92m"
+	local ansi_reset="\033[0m"
 
+	# Clear the screen and restore the cursor
+	clear
+	echo -e "\033[?25h"
+
+	# Display version information
+	printf "\nIMCv2 WSL Autorun version ${ansi_cyan}${script_version}${ansi_reset}.\n"
+	printf -- "--------------------------------\n\n"
+
+	# Create Git configuration
+	runner_create_git_config "$git_template_path" "$IMCV2_FULL_NAME" "$IMCV2_EMAIL"
+
+	# Ensure devtools are installed
+	if runner_ensure_dt; then
+
+		# Pin the auto-start configuration
+		runner_pin_auto_start
+
+		# Install the IMCv2 SDK if not installed
+		if [[ -z "${IMCV2_INSTALL_PATH}" || ! -d "${IMCV2_INSTALL_PATH}" ]]; then
+			runner_install_sdk install "$sdk_install_path" 1
+			result=$?
+		else
+			printf "Type 'im' to star the SDK.\n"
+		fi
+	fi
+
+	printf "\n"
+
+	# Return the captured result
+	return $result
 }
+
 #
 # @brief Invoke the main function with command-line arguments.
 # @return The exit status of the main function.
 #
 
 main "$@"
-return $?
+exit $?
