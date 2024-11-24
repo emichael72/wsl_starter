@@ -355,7 +355,7 @@ runner_get_simics() {
 main() {
 
 	local git_template_path="/home/$USER/downloads/imcv2_git_config.template"
-	local sdk_install_path="/home/$USER/projects/sdk"
+	local sdk_install_path="/home/$USER/projects/sdk/workspace"
 	local result=0
 	local ansi_cyan="\033[96m"
 	local ansi_reset="\033[0m"
