@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.4.2
+Version:      1.4.3
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -69,7 +69,7 @@ MCV2_WSL_DEFAULT_MIN_FREE_SPACE = 10 * (1024 ** 3)  # Minimum 10 Gogs of free di
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSLCreator"
-IMCV2_SCRIPT_VERSION = "1.4.2"
+IMCV2_SCRIPT_VERSION = "1.4.3"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -267,8 +267,8 @@ def wsl_runner_show_info(show_logo: bool = False):
         wsl_runner_print_logo()
 
     sys.stdout.write(f"\n{bright_white}IMCv2{reset} SDK WSL v{IMCV2_SCRIPT_VERSION} image creator.\n")
-    sys.stdout.write(f"We're setting up your environment, here's what's next:\n")
-    sys.stdout.write("-" * 54)
+    sys.stdout.write(f"Here's what's next:\n")
+    sys.stdout.write("-" * 19)
     sys.stdout.write("\n\n")
     sys.stdout.write(f" {bright_white}•{reset} Download a compatible Ubuntu image (ubuntu-base-24.04.1).\n")
     sys.stdout.write(f" {bright_white}•{reset} Create and import a new WSL Linux instance.\n")
@@ -718,12 +718,13 @@ def wsl_runner_win_to_wsl_path(windows_path):
     return wsl_path
 
 
-def wsl_runner_create_shortcut(instance_name: str, shortcut_name: str) -> int:
+def wsl_runner_create_shortcut(instance_name: str, instance_path: str, shortcut_name: str) -> int:
     """
     Creates or replaces a desktop shortcut to launch a WSL instance.
 
     Args:
         instance_name (str): The name of the WSL instance.
+        instance_path (str): Path to the directory where the WSL instance will be stored.
         shortcut_name (str): The name for the desktop shortcut.
 
     Returns:
@@ -733,6 +734,7 @@ def wsl_runner_create_shortcut(instance_name: str, shortcut_name: str) -> int:
         # Get the desktop path programmatically
         desktop_dir = wsl_runner_get_desktop_path()
         shortcut_path = os.path.join(desktop_dir, f"{shortcut_name}.lnk")
+        icon_file_name, icon_url = wsl_runner_get_resource_tuple_by_name("SDK Icon")
 
         # Remove existing shortcut if it exists
         if os.path.exists(shortcut_path):
@@ -748,7 +750,7 @@ def wsl_runner_create_shortcut(instance_name: str, shortcut_name: str) -> int:
         $Shortcut = $WScriptShell.CreateShortcut('{shortcut_path}')
         $Shortcut.TargetPath = '{target}'
         $Shortcut.Arguments = '{arguments}'
-        $Shortcut.IconLocation = '{target},0'
+        $Shortcut.IconLocation = '{os.path.join(instance_path, icon_file_name)},0'
         $Shortcut.Save()
         """
 
@@ -1502,6 +1504,8 @@ def run_pre_prerequisites_local_steps(instance_path: str, bare_linux_image_path:
         StepError: If any step in the process fails.
     """
 
+    icon_file_name, icon_url = wsl_runner_get_resource_tuple_by_name("SDK Icon")
+
     steps_commands = [
         # Ensure necessary directories exist
         ("Verifying destination paths", wsl_runner_ensure_directory_exists,
@@ -1509,7 +1513,11 @@ def run_pre_prerequisites_local_steps(instance_path: str, bare_linux_image_path:
 
         # Download Ubuntu bare Linux image
         ("Downloading Ubuntu image", wsl_runner_download_resources,
-         [ubuntu_url, bare_linux_image_path, proxy_server])
+         [ubuntu_url, bare_linux_image_path, proxy_server]),
+
+        # Download SDK icon
+        ("Downloading Ubuntu image", wsl_runner_download_resources,
+         [icon_url, instance_path, proxy_server])
     ]
 
     # Execute each command and handle errors
@@ -1645,7 +1653,7 @@ def wsl_runner_main() -> int:
             ("Install git configuration", lambda: run_install_git_config(instance_name, username, proxy_server)),
             ("Install pyenv", lambda: run_install_pyenv(instance_name, username, proxy_server)),
             ("Post-install steps", lambda: run_post_install_steps(instance_name, username, proxy_server)),
-            ("Create desktop shortcut", lambda: wsl_runner_create_shortcut(instance_name, "IMCv2 SDK")),
+            ("Create desktop shortcut", lambda: wsl_runner_create_shortcut(instance_name, instance_path, "IMCv2 SDK")),
         ]
 
         # Execute steps from the specified starting point
