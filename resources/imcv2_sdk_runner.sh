@@ -3,26 +3,21 @@
 # shellcheck disable=SC2059
 # shellcheck disable=SC2181
 
+# ------------------------------------------------------------------------------
 #
-# @brief Auto start entry point.
-# @return 0 if successful, 1 otherwise.
+# Script Name:  imcv2_sdk_runner.sh
+# Description:  IMCv2 SDK auto starter.
+# Version:      1.0
+# Copyright:    2024 Intel Corporation.
+# Author:       Intel IMCv2 Team.
 #
-
-runner_auto_run() {
-
-  clear
-  # Restore the cursor
-  echo -e "\033[?25h"
-  printf "\nIMCv2 SDK Autostart..\n"
-
-}
+# ------------------------------------------------------------------------------
 
 #
 # @brief Generates the .gitconfig file based on the provided template.
 # @param[in] 1 Template name (path to the template file).
 # @param[in] 2 Full name (may contain spaces).
 # @param[in] 3 Email address.
-#
 # @return 0 if successful, 1 otherwise.
 #
 
@@ -61,9 +56,8 @@ runner_create_git_config() {
 	fi
 }
 
-##
-# @brief Ensures the 'dt' (devtool) tool is installed and configured for use.
 #
+# @brief Ensures the 'dt' (devtool) tool is installed and configured for use.
 # Checks if 'dt' is available and attempts to retrieve a GitHub token.
 # If the token is unavailable, it guides the user through the setup process.
 # @return 0 if 'dt' is installed and a token is retrieved, 1 otherwise.
@@ -222,7 +216,7 @@ runner_set_auto_start() {
 	local enable="$1"
 	local bashrc_path="$HOME/.bashrc"
 	local header="# IMCv2 SDK Auto start."
-	local auto_start_script="$HOME/.imcv2/sdk_runner.sh runner_auto_run"
+	local auto_start_script="$HOME/.imcv2/bin/sdk_runner.sh"
 	# Validate input
 	if [[ "$enable" != "0" && "$enable" != "1" ]]; then
 		echo "Error: Invalid argument. Use 1 to enable or 0 to disable."
@@ -340,3 +334,25 @@ else
 	echo "Error: '$1' is not a recognized function name."
 	exit 1
 fi
+
+#
+# @brief https://en.wikipedia.org/wiki/Entry_point
+# @param "$@" Command-line arguments passed to the script.
+# @return 0 | 1
+#
+
+main() {
+
+  clear
+  # Restore the cursor
+  echo -e "\033[?25h"
+  runner_ensure_dt
+
+}
+#
+# @brief Invoke the main function with command-line arguments.
+# @return The exit status of the main function.
+#
+
+main "$@"
+return $?

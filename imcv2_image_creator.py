@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.3.4
+Version:      1.3.5
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -46,6 +46,7 @@ except ImportError:
     raise EnvironmentError("This script must be run on Windows.")
 import argparse
 import itertools
+import shutil
 import re
 import subprocess
 import sys
@@ -64,10 +65,11 @@ IMCV2_WSL_DEFAULT_UBUNTU_URL = ("https://cdimage.ubuntu.com/ubuntu-base/releases
                                 "ubuntu-base-24.04.1-base-amd64.tar.gz")
 IMCV2_WSL_DEFAULT_RESOURCES_URL = "https://raw.githubusercontent.com/emichael72/wsl_starter/main/resources"
 MCV2_WSL_DEFAULT_PASSWORD = "intel@1234"
+MCV2_WSL_DEFAULT_MIN_FREE_SPACE = 10 * (1024 ** 3) # Minimum 10 Gogs of free disk space
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSLCreator"
-IMCV2_SCRIPT_VERSION = "1.3.4"
+IMCV2_SCRIPT_VERSION = "1.3.5"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -115,8 +117,9 @@ class InfoType(int, Enum):
 
     """
     OK = 0
-    WARNING = 1001
-    DONE = 1000
+    ERROR = -1
+    WARNING = 10001
+    DONE = 10002
 
 
 class TextType(Enum):
@@ -137,14 +140,52 @@ class TextType(Enum):
     BOTH = 3
 
 
-# Function to return a tuple of file_name and constructed URL
+#
 def wsl_runner_get_resource_tuple_by_name(resource_name):
+    """
+    Retrieves the file name and constructed URL for a given resource name.
+
+    Searches through the predefined list of remote resources and, if a match is found for the
+    specified resource name, returns a tuple containing the file name and the corresponding URL. If the resource
+    name is not found, an exception is raised.
+
+    Args:
+        resource_name (str): The name of the resource to look up (e.g., "Packages list").
+
+    Returns:
+        tuple: A tuple containing:
+            - file_name (str): The file name associated with the resource.
+            - url (str): The constructed URL pointing to the resource.
+    """
     for resource in remote_resources:
         if resource["name"] == resource_name:
             file_name = resource["file_name"]
             url = f"{IMCV2_WSL_DEFAULT_RESOURCES_URL}/{file_name}"
             return file_name, url
     raise ValueError(f"Resource '{resource_name}' not found.")
+
+
+def wsl_runner_get_free_disk_space(path):
+    """
+    Gets the free disk space in bytes for the drive where the given path is located.
+
+    Args:
+        path (str): The path to check free disk space for (e.g., "c:\\users\\my_name\\test").
+
+    Returns:
+        int: Free disk space in bytes, or -1 on error.
+    """
+    try:
+        # Get the drive letter or root directory of the path
+        drive = os.path.splitdrive(path)[0] + '\\'
+
+        # Get the free disk space for the drive
+        total, used, free = shutil.disk_usage(drive)
+        return free
+    except Exception as e:
+        # Return -1 on error
+        print(f"Exception: {e}")
+        return -1
 
 
 def wsl_runner_get_office_user_identity():
@@ -1312,10 +1353,10 @@ def run_user_creation_steps(instance_name: str, username: str, password: str, hi
     """
     # Define the steps to create and configure the user
     steps_commands = [
-        # Install required packages (sudo, passwd)
-        ("Installing required packages (sudo, passwd)",
+        # Install required basic packages (sudo, passwd)
+        ("Installing required basic packages (sudo, passwd)",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 "dpkg -l | grep -q sudo || apt install -y sudo passwd"]),
+                 "dpkg -l | grep -q sudo || apt install -y sudo passwd curl"]),
 
         # Add 'sudo' group if it doesn't exist
         ("Adding 'sudo' group if it doesn't exist",
@@ -1449,13 +1490,12 @@ def run_initial_setup_steps(instance_name: str, instance_path: str, bare_linux_i
     wsl_runner_print_status(TextType.BOTH, "WSL environment startup completed", True, InfoType.DONE)
 
 
-def run_pre_prerequisites_steps(base_path: str, instance_path: str, bare_linux_image_path: str,
-                                ubuntu_url: str, proxy_server: str, new_line: bool = False):
+def run_pre_prerequisites_local_steps(instance_path: str, bare_linux_image_path: str,
+                                      ubuntu_url: str, proxy_server: str, new_line: bool = False):
     """
     Prepares the environment by verifying directories and downloading necessary resources.
 
     Args:
-        base_path (str): Base directory where resources will be stored.
         instance_path (str): Directory path for WSL instance data.
         bare_linux_image_path (str): Directory path for the Ubuntu Linux image.
         ubuntu_url (str): URL to download the Ubuntu image.
@@ -1470,10 +1510,6 @@ def run_pre_prerequisites_steps(base_path: str, instance_path: str, bare_linux_i
         # Ensure necessary directories exist
         ("Verifying destination paths", wsl_runner_ensure_directory_exists,
          [(bare_linux_image_path, instance_path)]),
-
-        # Download the packages list
-        ("Downloading Packages list", wsl_runner_download_resources,
-         [IMCV2_WSL_DEFAULT_RESOURCES_URL, base_path, proxy_server]),
 
         # Download Ubuntu bare Linux image
         ("Downloading Ubuntu image", wsl_runner_download_resources,
@@ -1594,11 +1630,16 @@ def wsl_runner_main() -> int:
             wsl_runner_print_status(TextType.BOTH, "Intel proxy is not available", True, InfoType.WARNING)
             intel_proxy_detected = False
 
+        # Mka e suer we have enough free disk spae
+        if wsl_runner_get_free_disk_space(os.environ["USERPROFILE"]) < MCV2_WSL_DEFAULT_MIN_FREE_SPACE:
+            wsl_runner_print_status(TextType.BOTH, "Insufficient free disk space", True, InfoType.ERROR)
+            return 1
+
         # Define all steps as a list of tuples (step_name, function_call)
         steps = [
             ("Pre-prerequisites",
-             lambda: run_pre_prerequisites_steps(base_path, instance_path, bare_linux_image_path, ubuntu_url,
-                                                 proxy_server)),
+             lambda: run_pre_prerequisites_local_steps(instance_path, bare_linux_image_path, ubuntu_url,
+                                                       proxy_server)),
             ("Initial setup", lambda: run_initial_setup_steps(instance_name, instance_path, bare_linux_image_file)),
             ("User creation", lambda: run_user_creation_steps(instance_name, username, password)),
             ("Time zone setup", lambda: run_time_zone_steps(instance_name)),
