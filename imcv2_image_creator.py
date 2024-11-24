@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.3.8
+Version:      1.3.9
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -69,7 +69,7 @@ MCV2_WSL_DEFAULT_MIN_FREE_SPACE = 10 * (1024 ** 3)  # Minimum 10 Gogs of free di
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSLCreator"
-IMCV2_SCRIPT_VERSION = "1.3.8"
+IMCV2_SCRIPT_VERSION = "1.3.9"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -930,10 +930,10 @@ def run_install_pyenv(instance_name, username, proxy_server, hidden=True, new_li
         ("Add Pyenv setup to .bashrc",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  f"cat <<'EOF' >> /home/{username}/.bashrc\n"
-                 f"# Pyenv setup\n"
+                 f"\n# Pyenv setup\n"
                  f"export PYENV_ROOT=\"\\$HOME/.pyenv\"\n"
                  f"[ -d \"\\$PYENV_ROOT/bin\" ] && export PATH=\"\\$PYENV_ROOT/bin:\\$PATH\"\n"
-                 f"eval \"\\$(pyenv init --path)\"\n"
+                 f"eval \"\\$(pyenv init --path)\"\n\n"
                  f"EOF"]),
 
         # Restarting session for changes to take effect
@@ -1016,7 +1016,7 @@ def run_install_git_config(instance_name, username, proxy_server, hidden=True, n
             "Add Git prompt source and set Git-aware PS1 prompt in .bashrc",
             "wsl", ["-d", instance_name, "--", "bash", "-c",
                     f"cat << 'EOF' >> /home/{username}/.bashrc\n"
-                    f"# Git-aware PS1 prompt setup\n"
+                    f"\n# Git-aware PS1 prompt setup\n"
                     f"source /usr/share/git-core/contrib/completion/git-prompt.sh\n"
                     f"export PS1='\\[\\e[1;32m\\]\\u \\[\\e[1;34m\\]\\w\\[\\e[1;31m\\]"
                     f"\\$(__git_ps1 \" (%s)\") \\[\\e[0m\\]> '\n\n"

@@ -51,7 +51,7 @@ runner_create_git_config() {
 	# Check if the output file was created successfully, if so delete the template
 	# to prevent future modifications.
 	if [[ $? -eq 0 && -f "$output_file" ]]; then
-		rm -f $template_name >/dev/null 2>&1
+		rm -f "$template_name" >/dev/null 2>&1
 		return 0
 	else
 		echo "Error: Failed to create git configuration file."
@@ -94,7 +94,7 @@ $script_path"
 	fi
 
 	# Append the content to the end of the file
-	echo -e "$expected_content" >>"$bashrc_file"
+	echo -e "\n$expected_content" >>"$bashrc_file"
 	return 1 # Modifications were made
 }
 
@@ -131,7 +131,7 @@ runner_ensure_dt() {
 	# Print welcome message
 	clear
 	printf "\nIMCv2 'dt' Installer.\n"
-	printf -- "--------------------------------\n\n"
+	printf -- "---------------------\n\n"
 
 	printf "This tool is an essential for enabling this WSL instance to\n"
 	printf "access ${light_blue}Intel${reset} inner sources, including the ${bright_white}IMCv2${reset} repository.\n"
@@ -165,6 +165,7 @@ runner_ensure_dt() {
 		fi
 	fi
 
+  export PATH="/home/$USER/bin:$PATH"
 	"$dt_path" setup
 	local setup_exit_code=$?
 
@@ -357,7 +358,6 @@ main() {
 	local sdk_install_path="/home/$USER/projects/sdk"
 	local result=0
 	local ansi_cyan="\033[96m"
-	local ansi_green="\033[92m"
 	local ansi_reset="\033[0m"
 	local patch_mode=0 # Flag for patch mode
 
@@ -387,7 +387,7 @@ main() {
 
 	# Display version information
 	printf "\nIMCv2 WSL Autorun version ${ansi_cyan}${script_version}${ansi_reset}.\n"
-	printf -- "--------------------------------\n\n"
+	printf -- "------------------------------\n\n"
 
 	# Create Git configuration
 	runner_create_git_config "$git_template_path" "$IMCV2_FULL_NAME" "$IMCV2_EMAIL"
@@ -407,6 +407,7 @@ main() {
 		fi
 	fi
 
+  runner_pin_auto_start
 	printf "\n"
 
 	# Return the captured result
