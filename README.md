@@ -1,4 +1,4 @@
-## Welcome to the IMCv2 SDK / WSL Installer. 
+## Welcome to the IMCv2 SDK / WSL Inage Creator. 
 **Follow these steps to set up your environment:**
 
 1. Open the Command Prompt on your Windows system.
@@ -7,7 +7,7 @@
 
 ```cmd
 
-curl -s -S --proxy http://proxy-dmz.intel.com:911 https://raw.githubusercontent.com/emichael72/wsl_starter/main/imcv2_wsl_runner.py | python - -n IMCv2 && timeout 1 && exit
+curl -s -S --proxy http://proxy-dmz.intel.com:911 https://raw.githubusercontent.com/emichael72/wsl_starter/main/imcv2_image_creator.py | python - -n IMCv2 && timeout 1 && exit
 
 ```
 
@@ -15,7 +15,7 @@ curl -s -S --proxy http://proxy-dmz.intel.com:911 https://raw.githubusercontent.
 
  ```cmd
 
-curl -s -S https://raw.githubusercontent.com/emichael72/wsl_starter/main/imcv2_wsl_runner.py | python - -n IMCv2 && timeout 1 && exit
+curl -s -S https://raw.githubusercontent.com/emichael72/wsl_starter/main/imcv2_image_creator.py | python - -n IMCv2 && timeout 1 && exit
 
 ```
 
