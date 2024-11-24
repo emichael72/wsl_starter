@@ -2,7 +2,6 @@
 # shellcheck disable=SC2317
 # shellcheck disable=SC2059
 # shellcheck disable=SC2181
-# shfmt -i 0 -w imcv2_sdk_runner.sh
 
 # ------------------------------------------------------------------------------
 #
@@ -360,6 +359,27 @@ main() {
 	local ansi_cyan="\033[96m"
 	local ansi_green="\033[92m"
 	local ansi_reset="\033[0m"
+	local patch_mode=0 # Flag for patch mode
+
+	# Parse command-line arguments
+	while [[ $# -gt 0 ]]; do
+		case "$1" in
+		-p | --patch)
+			patch_mode=1
+			shift
+			;;
+		*)
+			echo "Unknown argument: $1"
+			exit 1
+			;;
+		esac
+	done
+
+	# If patch mode is enabled, execute runner_pin_auto_start and return
+	if [[ $patch_mode -eq 1 ]]; then
+		runner_pin_auto_start
+		return 0
+	fi
 
 	# Clear the screen and restore the cursor
 	clear

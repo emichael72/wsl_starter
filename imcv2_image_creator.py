@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.3.7
+Version:      1.3.8
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -65,11 +65,11 @@ IMCV2_WSL_DEFAULT_UBUNTU_URL = ("https://cdimage.ubuntu.com/ubuntu-base/releases
                                 "ubuntu-base-24.04.1-base-amd64.tar.gz")
 IMCV2_WSL_DEFAULT_RESOURCES_URL = "https://raw.githubusercontent.com/emichael72/wsl_starter/main/resources"
 MCV2_WSL_DEFAULT_PASSWORD = "intel@1234"
-MCV2_WSL_DEFAULT_MIN_FREE_SPACE = 10 * (1024 ** 3) # Minimum 10 Gogs of free disk space
+MCV2_WSL_DEFAULT_MIN_FREE_SPACE = 10 * (1024 ** 3)  # Minimum 10 Gogs of free disk space
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSLCreator"
-IMCV2_SCRIPT_VERSION = "1.3.7"
+IMCV2_SCRIPT_VERSION = "1.3.8"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -852,7 +852,7 @@ def run_post_install_steps(instance_name: str, username, proxy_server, hidden: b
         # Use the SDK Runner to patch bashrc
         ("Make 'sdk_runner' run at startup",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 f"/home/{username}/.imcv2/bin/{sdk_runner_file_name} runner_set_auto_start 1"]),
+                 f"/home/{username}/.imcv2/bin/{sdk_runner_file_name} -p"]),
 
         # Terminate WSL session
         ("Restarting session for changes to take effect",
@@ -1159,7 +1159,7 @@ def run_user_shell_steps(instance_name: str, username: str, proxy_server: str, h
                 f"Setting full name",
                 "wsl", ["-d", instance_name, "--", "bash", "-c",
                         f"grep -q 'export IMCV2_FULL_NAME=' /home/{username}/.bashrc || "
-                        f"echo 'export IMCV2_FULL_NAME={corp_name}' >> /home/{username}/.bashrc"]
+                        f"echo 'export IMCV2_FULL_NAME=\"{corp_name}\"' >> /home/{username}/.bashrc"]
             )] if corp_name is not None else []
         ),
 
