@@ -117,7 +117,6 @@ runner_ensure_dt() {
 	yellow="\033[93m"
 	light_blue="\033[94m"
 	reset="\033[0m"
-	bright_white="\033[97m"
 
 	# Check for .netrc and attempt to get a token
 	if [[ -f "$netrc_path" ]]; then
@@ -132,11 +131,8 @@ runner_ensure_dt() {
 	clear
 	printf "\nIMCv2 'dt' Installer.\n"
 	printf -- "---------------------\n\n"
-
-	printf "This tool is an essential for enabling this WSL instance to\n"
-	printf "access ${light_blue}Intel${reset} inner sources, including the ${bright_white}IMCv2${reset} repository.\n"
-	printf "${yellow}Note:${reset} You need a registered GitHub account and must have completed\n"
-	printf "all onboarding steps: https://1source.intel.com/onboard\n\n"
+  printf "'dt' is essential for enabling this WSL instance to access ${light_blue}Intel${reset} internal resources.\n"
+  printf "Ensure you have access to ${yellow}https://github.com/intel-innersource${reset}, and accept all defaults when prompted.\n\n"
 
 	# Check if 'dt' is installed
 	if [[ ! -f "$dt_path" ]]; then

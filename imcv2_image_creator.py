@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.3.9
+Version:      1.4.0
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -69,7 +69,7 @@ MCV2_WSL_DEFAULT_MIN_FREE_SPACE = 10 * (1024 ** 3)  # Minimum 10 Gogs of free di
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSLCreator"
-IMCV2_SCRIPT_VERSION = "1.3.9"
+IMCV2_SCRIPT_VERSION = "1.4.0"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
