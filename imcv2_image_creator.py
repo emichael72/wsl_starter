@@ -268,7 +268,7 @@ def wsl_runner_show_info(show_logo: bool = False):
 
     sys.stdout.write(f"\n{bright_white}IMCv2{reset} SDK WSL v{IMCV2_SCRIPT_VERSION} image creator.\n")
     sys.stdout.write(f"Here's what's next:\n")
-    sys.stdout.write("-" * 19)
+    sys.stdout.write("-" * 36)
     sys.stdout.write("\n\n")
     sys.stdout.write(f" {bright_white}•{reset} Download a compatible Ubuntu image (ubuntu-base-24.04.1).\n")
     sys.stdout.write(f" {bright_white}•{reset} Create and import a new WSL Linux instance.\n")
