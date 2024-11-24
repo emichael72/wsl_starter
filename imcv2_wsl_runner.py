@@ -898,9 +898,9 @@ def run_install_pyenv(instance_name, username, proxy_server, hidden=True, new_li
     wsl_runner_print_status(TextType.BOTH, "Python 3.9 via 'pyenv' installation", True, InfoType.DONE)
 
 
-def run_install_user_packages(instance_name, username, proxy_server, hidden=True, new_line=False):
+def run_install_git_config(instance_name, username, proxy_server, hidden=True, new_line=False):
     """
-     Instance various Intel specific user packages , for example 'dt'.
+     Instance git related configuration.
 
     Args:
         instance_name (str): The name of the WSL instance.
@@ -964,7 +964,7 @@ def run_install_user_packages(instance_name, username, proxy_server, hidden=True
                                   ignore_errors=ignore_errors) != 0:
             raise StepError(f"Failed during step: {description}")
 
-    wsl_runner_print_status(TextType.BOTH, "User package installation", True, InfoType.DONE)
+    wsl_runner_print_status(TextType.BOTH, "User git configuration", True, InfoType.DONE)
 
 
 def run_install_system_packages(instance_name, username, packages_file, hidden=True, new_line=False, timeout=120):
@@ -1567,7 +1567,7 @@ def wsl_runner_main() -> int:
             ("Kerberos setup", lambda: run_kerberos_steps(instance_name)),
             ("User shell setup", lambda: run_user_shell_steps(instance_name, username, proxy_server)),
             ("Install system packages", lambda: run_install_system_packages(instance_name, username, packages_file)),
-            ("Install user packages", lambda: run_install_user_packages(instance_name, username, proxy_server)),
+            ("Install git configuration", lambda: run_install_git_config(instance_name, username, proxy_server)),
             ("Install pyenv", lambda: run_install_pyenv(instance_name, username, proxy_server)),
             ("Post-install steps", lambda: run_post_install_steps(instance_name, username, proxy_server)),
             ("Create desktop shortcut", lambda: wsl_runner_create_shortcut(instance_name, "IMCv2 SDK")),
