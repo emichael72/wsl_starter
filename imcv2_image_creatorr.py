@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Script:       imcv2_wsl_runner.py
+Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
 Version:      1.3.3
 
