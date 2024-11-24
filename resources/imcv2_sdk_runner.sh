@@ -253,8 +253,8 @@ runner_install_sdk() {
 		if [[ $exit_code -eq 0 ]]; then
 			return 0
 		else
-			echo "Error: SDK installation failed with exit code $exit_code."
-			echo "This instance will keep trying. Please reopen this window to try again."
+			printf "\n\nThe SDK installation failed with exit code $exit_code.\n"
+			printf "This WSL instance will keep trying, simply close this window and reopen it to try again.\n"
 		fi
 		return "$exit_code"
 		;;
