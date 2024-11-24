@@ -21,7 +21,7 @@ Key Features:
 - Provides robust error handling and detailed logging.
 
 Usage:
-    python imcv2_wsl_runner.py -n <InstanceName>
+    python imcv2_image_creator.py -n <InstanceName>
 
 Arguments:
     -n, --name          The name of the WSL instance to create. (Required)
@@ -62,13 +62,34 @@ IMCV2_WSL_DEFAULT_LINUX_IMAGE_PATH = "Bare"
 IMCV2_WSL_DEFAULT_SDK_INSTANCES_PATH = "Instances"
 IMCV2_WSL_DEFAULT_UBUNTU_URL = ("https://cdimage.ubuntu.com/ubuntu-base/releases/24.04.1/release/"
                                 "ubuntu-base-24.04.1-base-amd64.tar.gz")
-IMCV2_WSL_DEFAULT_PACKAGES_URL = "https://raw.githubusercontent.com/emichael72/wsl_starter/main/packages.txt"
+IMCV2_WSL_DEFAULT_RESOURCES_URL = "https://raw.githubusercontent.com/emichael72/wsl_starter/main/resources"
 MCV2_WSL_DEFAULT_PASSWORD = "intel@1234"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSLCreator"
 IMCV2_SCRIPT_VERSION = "1.3.3"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
+
+# List of remote downloadable resources
+
+remote_resources = [
+    {
+        "name": "Packages list",
+        "file_name": "imcv2_apt_packages.txt",
+    },
+    {
+        "name": "Git configuration template",
+        "file_name": "imcv2_git_config.template",
+    },
+    {
+        "name": "SDK Icon",
+        "file_name": "imcv2_sdk.ico",
+    },
+    {
+        "name": "SDK Runner script",
+        "file_name": "imcv2_sdk_runner.sh",
+    },
+]
 
 # Spinning characters for progress indication
 spinner_active = False
@@ -114,6 +135,16 @@ class TextType(Enum):
     PREFIX = 1
     SUFFIX = 2
     BOTH = 3
+
+
+# Function to return a tuple of file_name and constructed URL
+def wsl_runner_get_resource_tuple_by_name(resource_name):
+    for resource in remote_resources:
+        if resource["name"] == resource_name:
+            file_name = resource["file_name"]
+            url = f"{IMCV2_WSL_DEFAULT_RESOURCES_URL}/{file_name}"
+            return file_name, url
+    raise ValueError(f"Resource '{resource_name}' not found.")
 
 
 def wsl_runner_get_office_user_identity():
@@ -361,7 +392,7 @@ def wsl_runner_download_resources(url, destination_path, proxy_server: str = Non
     global intel_proxy_detected
 
     # Define curl arguments based on proxy availability
-    if not proxy_server or intel_proxy_detected == False:
+    if not proxy_server or intel_proxy_detected is False:
         args = [
             "-s", "-S", "-w", "%{http_code}",  # silent mode, show errors, output HTTP status code
             "--output", destination,  # Specify the output file destination
@@ -736,6 +767,9 @@ def run_post_install_steps(instance_name: str, username, proxy_server, hidden: b
     """
     global intel_proxy_detected
 
+    git_template_file_name, git_template_url = wsl_runner_get_resource_tuple_by_name("Git configuration template")
+    sdk_runner_file_name, sdk_runner_url = wsl_runner_get_resource_tuple_by_name("SDK Runner script")
+
     steps_commands = [
         # Set the WSL instance as the default
         ("Setting the WSL instance as the default",
@@ -746,12 +780,12 @@ def run_post_install_steps(instance_name: str, username, proxy_server, hidden: b
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  (
                      f"curl -sS --proxy {proxy_server} "
-                     f"-o /home/{username}/downloads/git_config.template "
-                     "https://raw.githubusercontent.com/emichael72/wsl_starter/main/git_config.template"
+                     f"-o /home/{username}/downloads/{git_template_file_name} "
+                     f"{git_template_url}"
                      if intel_proxy_detected else
                      f"curl -sS "
-                     f"-o /home/{username}/downloads/git_config.template "
-                     "https://raw.githubusercontent.com/emichael72/wsl_starter/main/git_config.template"
+                     f"-o /home/{username}/downloads/{git_template_file_name} "
+                     f"{git_template_url}"
                  )
                  ]),
 
@@ -760,24 +794,24 @@ def run_post_install_steps(instance_name: str, username, proxy_server, hidden: b
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  (
                      f"curl -sS --proxy {proxy_server} "
-                     f"-o /home/{username}/.imcv2/bin/sdk_runner.sh "
-                     "https://raw.githubusercontent.com/emichael72/wsl_starter/main/sdk_runner.sh"
+                     f"-o /home/{username}/.imcv2/bin/{sdk_runner_file_name} "
+                     f"{sdk_runner_url}"
                      if intel_proxy_detected else
                      f"curl -sS "
-                     f"-o /home/{username}/.imcv2/bin/sdk_runner.sh "
-                     "https://raw.githubusercontent.com/emichael72/wsl_starter/main/sdk_runner.sh"
+                     f"-o /home/{username}/.imcv2/bin/{sdk_runner_file_name} "
+                     f"{sdk_runner_url}"
                  )
                  ]),
 
         # Make the SDK Runner executable
         ("Make the SDK runner script executable",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 f"chmod +x /home/{username}/.imcv2/bin/sdk_runner.sh"]),
+                 f"chmod +x /home/{username}/.imcv2/bin/{sdk_runner_file_name}"]),
 
         # Use the SDK Runner to patch bashrc
         ("Make 'sdk_runner' run at startup",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 f"/home/{username}/.imcv2/bin/sdk_runner.sh runner_set_auto_start 1"]),
+                 f"/home/{username}/.imcv2/bin/{sdk_runner_file_name} runner_set_auto_start 1"]),
 
         # Terminate WSL session
         ("Restarting session for changes to take effect",
@@ -967,36 +1001,38 @@ def run_install_git_config(instance_name, username, proxy_server, hidden=True, n
     wsl_runner_print_status(TextType.BOTH, "User git configuration", True, InfoType.DONE)
 
 
-def run_install_system_packages(instance_name, username, packages_file, hidden=True, new_line=False, timeout=120):
+def run_install_system_packages(instance_name, username, proxy_server, hidden=True, new_line=False,
+                                timeout=120):
     """
     Transfers a packages file to the WSL instance and installs the packages listed in the file.
 
     Args:
         instance_name (str): The name of the WSL instance.
         username: (str): WSL username
-        packages_file (str): Path to the file containing the list of packages to install.
+        proxy_server (str): HTTP/HTTPS proxy server address to set in .bashrc.
         hidden (bool): Specifies whether to suppress the output of the executed command.
         new_line (bool): Specifies whether each step should be displayed on its own line.
         timeout (int, optional): Time in seconds to wait for the process to complete. Default is 120 seconds.
     """
+    global intel_proxy_detected
 
-    # Count lines (packages) within  the input file
-    with open(packages_file, 'r') as file:
-        line_count = sum(1 for _ in file)
-
-    if line_count == 0:
-        wsl_runner_print_status(TextType.BOTH, "Empty packages file", True, InfoType.DONE)
-        return 0
-
-    wsl_windows_packages_file = wsl_runner_win_to_wsl_path(packages_file)
-    wsl_instance_packages_file = f"/home/{username}/downloads/packages.txt"
+    packages_file_name, package_url = wsl_runner_get_resource_tuple_by_name("Packages list")
 
     # Define commands related to package installation
     steps_commands = [
-        # Transferring the packages file to the WSL instance
-        ("Transferring packages to WSL instance",
+        # Download git configuration template
+        ("Downloading required packages list",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 f"cp -f {wsl_windows_packages_file} {wsl_instance_packages_file}"]),
+                 (
+                     f"curl -sS --proxy {proxy_server} "
+                     f"-o /home/{username}/downloads/{packages_file_name} "
+                     f"{package_url}"
+                     if intel_proxy_detected else
+                     f"curl -sS "
+                     f"-o /home/{username}/downloads/{packages_file_name} "
+                     f"{package_url}"
+                 )
+                 ]),
 
         # Clearing local apt cache
         ("Clearing local apt cache",
@@ -1007,14 +1043,17 @@ def run_install_system_packages(instance_name, username, packages_file, hidden=T
          "wsl", ["--terminate", instance_name]),
 
         # Installing packages from file (ignore errors on first attempt)
-        (f"Installing {line_count} packages",
+        (f"Installing packages",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 f"xargs -a {wsl_instance_packages_file} -r sudo apt install -y --ignore-missing -qq"], True),
+                 f"xargs -a /home/{username}/downloads/{packages_file_name} -r sudo apt install -y "
+                 f"--ignore-missing -qq"],
+         True),
 
         # Installing packages from file (retry without ignoring errors)
         ("Installing packages from file second round",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 f"xargs -a {wsl_instance_packages_file} -r sudo apt install -y --ignore-missing -qq"]),
+                 f"xargs -a /home/{username}/downloads/{packages_file_name} -r sudo apt install -y "
+                 f"--ignore-missing -qq"]),
 
         # Restarting session for changes to take effect
         ("Restarting session for changes to take effect",
@@ -1434,7 +1473,7 @@ def run_pre_prerequisites_steps(base_path: str, instance_path: str, bare_linux_i
 
         # Download the packages list
         ("Downloading Packages list", wsl_runner_download_resources,
-         [IMCV2_WSL_DEFAULT_PACKAGES_URL, base_path, proxy_server]),
+         [IMCV2_WSL_DEFAULT_RESOURCES_URL, base_path, proxy_server]),
 
         # Download Ubuntu bare Linux image
         ("Downloading Ubuntu image", wsl_runner_download_resources,
@@ -1546,7 +1585,6 @@ def wsl_runner_main() -> int:
 
         # Construct file paths
         bare_linux_image_file = os.path.join(bare_linux_image_path, os.path.basename(urlparse(ubuntu_url).path))
-        packages_file = os.path.join(base_path, os.path.basename(urlparse(IMCV2_WSL_DEFAULT_PACKAGES_URL).path))
 
         wsl_runner_show_info()
         sys.stdout.write("\033[?25l")  # Hide the cursor
@@ -1566,7 +1604,7 @@ def wsl_runner_main() -> int:
             ("Time zone setup", lambda: run_time_zone_steps(instance_name)),
             ("Kerberos setup", lambda: run_kerberos_steps(instance_name)),
             ("User shell setup", lambda: run_user_shell_steps(instance_name, username, proxy_server)),
-            ("Install system packages", lambda: run_install_system_packages(instance_name, username, packages_file)),
+            ("Install system packages", lambda: run_install_system_packages(instance_name, username, proxy_server)),
             ("Install git configuration", lambda: run_install_git_config(instance_name, username, proxy_server)),
             ("Install pyenv", lambda: run_install_pyenv(instance_name, username, proxy_server)),
             ("Post-install steps", lambda: run_post_install_steps(instance_name, username, proxy_server)),
