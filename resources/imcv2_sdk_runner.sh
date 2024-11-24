@@ -7,14 +7,14 @@
 #
 # Script Name:  imcv2_sdk_runner.sh
 # Description:  IMCv2 SDK auto starter.
-# Version:      1.0
+# Version:      1.1
 # Copyright:    2024 Intel Corporation.
 # Author:       Intel IMCv2 Team.
 #
 # ------------------------------------------------------------------------------
 
 # Script global variables
-script_version="1.0"
+script_version="1.1"
 
 #
 # @brief Generates the .gitconfig file based on the provided template.
@@ -122,6 +122,7 @@ runner_ensure_dt() {
 	if [[ -f "$netrc_path" ]]; then
 		token=$("$dt_path" github print-token "$github_url" 2>/dev/null)
 		if [[ -n "$token" ]]; then
+			export PATH="/home/$USER/bin:$PATH"
 			return 0
 		fi
 	fi
@@ -131,8 +132,8 @@ runner_ensure_dt() {
 	clear
 	printf "\nIMCv2 'dt' Installer.\n"
 	printf -- "---------------------\n\n"
-  printf "'dt' is essential for enabling this WSL instance to access ${light_blue}Intel${reset} internal resources.\n"
-  printf "Ensure you have access to ${yellow}https://github.com/intel-innersource${reset}, and accept all defaults when prompted.\n\n"
+	printf "'dt' is essential for enabling this WSL instance to access ${light_blue}Intel${reset} internal resources.\n"
+	printf "Ensure you have access to ${yellow}https://github.com/intel-innersource${reset}, and accept all defaults when prompted.\n\n"
 
 	# Check if 'dt' is installed
 	if [[ ! -f "$dt_path" ]]; then
@@ -161,13 +162,13 @@ runner_ensure_dt() {
 		fi
 	fi
 
-  export PATH="/home/$USER/bin:$PATH"
 	"$dt_path" setup
 	local setup_exit_code=$?
 
 	# Attempt to generate token again
 	token=$("$dt_path" github print-token "$github_url" 2>/dev/null)
 	if [[ -n "$token" ]]; then
+		export PATH="/home/$USER/bin:$PATH"
 		return 0
 	fi
 
@@ -403,7 +404,7 @@ main() {
 		fi
 	fi
 
-  runner_pin_auto_start
+	runner_pin_auto_start
 	printf "\n"
 
 	# Return the captured result
