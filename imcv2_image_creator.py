@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.4.1
+Version:      1.4.2
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -69,7 +69,7 @@ MCV2_WSL_DEFAULT_MIN_FREE_SPACE = 10 * (1024 ** 3)  # Minimum 10 Gogs of free di
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSLCreator"
-IMCV2_SCRIPT_VERSION = "1.4.1"
+IMCV2_SCRIPT_VERSION = "1.4.2"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -266,16 +266,14 @@ def wsl_runner_show_info(show_logo: bool = False):
     if show_logo:
         wsl_runner_print_logo()
 
-    sys.stdout.write(f"\n{bright_white}IMCv2 SDK WSL{reset} v{IMCV2_SCRIPT_VERSION} image creator.\n")
-    sys.stdout.write(f"We're setting up your environment—here's what's next:\n")
-    sys.stdout.write("-" * 53)
+    sys.stdout.write(f"\n{bright_white}IMCv2{reset} SDK WSL v{IMCV2_SCRIPT_VERSION} image creator.\n")
+    sys.stdout.write(f"We're setting up your environment, here's what's next:\n")
+    sys.stdout.write("-" * 54)
     sys.stdout.write("\n\n")
     sys.stdout.write(f" {bright_white}•{reset} Download a compatible Ubuntu image (ubuntu-base-24.04.1).\n")
     sys.stdout.write(f" {bright_white}•{reset} Create and import a new WSL Linux instance.\n")
-    sys.stdout.write(f" {bright_white}•{reset} Configure environment settings.\n")
+    sys.stdout.write(f" {bright_white}•{reset} Configure system defaults and user environment.\n")
     sys.stdout.write(f" {bright_white}•{reset} Install essential packages for the {bright_white}IMCv2{reset} SDK.\n\n")
-
-    sys.stdout.write(f"Please keep your PC connected to {bright_white}Intel{reset} throughout.\n\n")
     sys.stdout.flush()
 
 
@@ -1082,7 +1080,7 @@ def run_install_system_packages(instance_name, username, proxy_server, hidden=Tr
          "wsl", ["--terminate", instance_name]),
 
         # Installing packages from file (ignore errors on first attempt)
-        (f"Installing packages",
+        (f"Installing (a lot of) packages",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  f"xargs -a /home/{username}/downloads/{packages_file_name} -r sudo apt install -y "
                  f"--ignore-missing -qq"],
