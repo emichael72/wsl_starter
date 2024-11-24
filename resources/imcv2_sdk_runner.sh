@@ -7,14 +7,14 @@
 #
 # Script Name:  imcv2_sdk_runner.sh
 # Description:  IMCv2 SDK auto starter.
-# Version:      1.1
+# Version:      1.2
 # Copyright:    2024 Intel Corporation.
 # Author:       Intel IMCv2 Team.
 #
 # ------------------------------------------------------------------------------
 
 # Script global variables
-script_version="1.1"
+script_version="1.2"
 
 #
 # @brief Generates the .gitconfig file based on the provided template.
@@ -133,7 +133,7 @@ runner_ensure_dt() {
 	printf "\nIMCv2 'dt' Installer.\n"
 	printf -- "---------------------\n\n"
 	printf "'dt' is essential for enabling this WSL instance to access ${light_blue}Intel${reset} internal resources.\n"
-	printf "Ensure you have access to ${yellow}https://github.com/intel-innersource${reset}, and accept all defaults when prompted.\n\n"
+	printf "Ensure you have access to ${yellow}https://github.com/intel-innersource${reset}, and accept defaults when prompted.\n\n"
 
 	# Check if 'dt' is installed
 	if [[ ! -f "$dt_path" ]]; then
@@ -164,6 +164,9 @@ runner_ensure_dt() {
 
 	"$dt_path" setup
 	local setup_exit_code=$?
+
+  # Make sure auto run is the last line
+  runner_pin_auto_start
 
 	# Attempt to generate token again
 	token=$("$dt_path" github print-token "$github_url" 2>/dev/null)
