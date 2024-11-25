@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.5.9
+Version:      1.6.0
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -72,7 +72,7 @@ IMCV2_WSL_DEFAULT_DRIVE_LETTER = "W"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSL Creator"
-IMCV2_SCRIPT_VERSION = "1.5.9"
+IMCV2_SCRIPT_VERSION = "1.6.0"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -1776,7 +1776,7 @@ def wsl_runner_main() -> int:
     parser.add_argument("-p", "--password",
                         help=f"Specify the initial user password instead of  "
                              f"'{IMCV2_WSL_DEFAULT_PASSWORD}'.")
-    parser.add_argument("-h", "--hidden", action="store_false", help=f"Sets to disable the default hidden mode.")
+    parser.add_argument("-H", "--hidden", action="store_false", help=f"Sets to disable the default hidden mode.")
 
     parser.add_argument("-ver", "--version", action="store_true", help="Display version information.")
     args = parser.parse_args()
