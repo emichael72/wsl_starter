@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.5.8
+Version:      1.5.9
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -72,7 +72,7 @@ IMCV2_WSL_DEFAULT_DRIVE_LETTER = "W"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSL Creator"
-IMCV2_SCRIPT_VERSION = "1.5.8"
+IMCV2_SCRIPT_VERSION = "1.5.9"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -1776,6 +1776,8 @@ def wsl_runner_main() -> int:
     parser.add_argument("-p", "--password",
                         help=f"Specify the initial user password instead of  "
                              f"'{IMCV2_WSL_DEFAULT_PASSWORD}'.")
+    parser.add_argument("-h", "--hidden", action="store_false", help=f"Sets to disable the default hidden mode.")
+
     parser.add_argument("-ver", "--version", action="store_true", help="Display version information.")
     args = parser.parse_args()
 
@@ -1831,16 +1833,20 @@ def wsl_runner_main() -> int:
             ("Pre-prerequisites",
              lambda: run_pre_prerequisites_local_steps(instance_path, bare_linux_image_path, ubuntu_url,
                                                        proxy_server)),
-            ("Initial setup", lambda: run_initial_setup_steps(instance_name, instance_path, bare_linux_image_file)),
-            ("User creation", lambda: run_user_creation_steps(instance_name, username, password)),
-            ("User shell setup", lambda: run_user_shell_steps(instance_name, username, proxy_server)),
-            ("Time zone setup", lambda: run_time_zone_steps(instance_name)),
-            ("Kerberos setup", lambda: run_kerberos_steps(instance_name)),
-            ("Install system packages", lambda: run_install_system_packages(instance_name, username, proxy_server)),
-            ("Install git configuration", lambda: run_install_git_config(instance_name, username, proxy_server)),
-            ("Install pyenv", lambda: run_install_pyenv(instance_name, username, proxy_server)),
-            ("Post-install steps", lambda: run_post_install_steps(instance_name, username, proxy_server)),
-            ("Create desktop shortcut", lambda: wsl_runner_create_shortcut(instance_name, instance_path, "IMCv2 SDK")),
+            ("Initial setup", lambda: run_initial_setup_steps(instance_name, instance_path,
+                                                              bare_linux_image_file, args.hidden)),
+            ("User creation", lambda: run_user_creation_steps(instance_name, username, password, args.hidden)),
+            ("User shell setup", lambda: run_user_shell_steps(instance_name, username, proxy_server, args.hidden)),
+            ("Time zone setup", lambda: run_time_zone_steps(instance_name, args.hidden)),
+            ("Kerberos setup", lambda: run_kerberos_steps(instance_name, args.hidden)),
+            ("Install system packages", lambda: run_install_system_packages(instance_name, username,
+                                                                            proxy_server, args.hidden)),
+            ("Install git configuration", lambda: run_install_git_config(instance_name, username,
+                                                                         proxy_server, args.hidden)),
+            ("Install pyenv", lambda: run_install_pyenv(instance_name, username, proxy_server, args.hidden)),
+            ("Post-install steps", lambda: run_post_install_steps(instance_name, username, proxy_server, args.hidden)),
+            ("Create desktop shortcut", lambda: wsl_runner_create_shortcut(instance_name,
+                                                                           instance_path, "IMCv2 SDK")),
         ]
 
         # Execute steps from the specified starting point
