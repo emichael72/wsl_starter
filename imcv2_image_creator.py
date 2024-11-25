@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.4.9
+Version:      1.5.0
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -71,7 +71,7 @@ MCV2_WSL_DEFAULT_MIN_FREE_SPACE = 10 * (1024 ** 3)  # Minimum 10 Gigs of free di
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSL Creator"
-IMCV2_SCRIPT_VERSION = "1.4.9"
+IMCV2_SCRIPT_VERSION = "1.5.0"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -1282,8 +1282,8 @@ def run_user_shell_steps(instance_name: str, username: str, proxy_server: str, h
     # Get email and full name or empty strings
     corp_name, corp_email = wsl_runner_get_office_user_identity()
 
-    # Resource - kerbero configuration file.
-    kerberos_file_name, kerbero_file_url = wsl_runner_get_resource_tuple_by_name("Kerberos configuration")
+    # Resource - kerberos configuration file.
+    kerberos_file_name, kerberos_file_url = wsl_runner_get_resource_tuple_by_name("Kerberos configuration")
 
     global intel_proxy_detected
 
@@ -1328,27 +1328,29 @@ def run_user_shell_steps(instance_name: str, username: str, proxy_server: str, h
                  f"sudo chown -R {username}:{username} "
                  f"/home/{username}/downloads /home/{username}/projects /home/{username}/.imcv2/bin"]),
 
-        # Download Kerberus configuration
-        ("Downloading  Kerberus configuration",
+        # Download Kerberos configuration
+        ("Downloading  Kerberos configuration",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  (
                      f"curl -sS --proxy {proxy_server} "
                      f"-o /home/{username}/{kerberos_file_name} "
-                     f"{kerbero_file_url}"
+                     f"{kerberos_file_url}"
                      if intel_proxy_detected else
                      f"curl -sS "
                      f"-o /home/{username}/{kerberos_file_name} "
-                     f"{kerbero_file_url}"
+                     f"{kerberos_file_url}"
                  )
                  ]),
-       # Copy Kerberos file to /etc/krb5.conf using sudo
+
+        # Copy Kerberos file to /etc/krb5.conf using sudo
         (
-            "Copy Kerberos configuration filef",
+            "Copy Kerberos configuration file",
             "wsl",
             ["-d", instance_name, "--", "bash", "-c",
-             f"sudo cp /home/{username}/{kerberos_file_name} /etc/krb5.conf && sudo chown root:root /etc/krb5.conf && sudo chmod 644 /etc/krb5.conf"]
-        ), 
-        
+             f"sudo cp /home/{username}/{kerberos_file_name} /etc/krb5.conf && sudo chown root:root /etc/krb5.conf "
+             f"&& sudo chmod 644 /etc/krb5.conf"]
+        ),
+
         # Create .hushlogin in the user's home directory
         ("Create .hushlogin in the user's home directory",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
