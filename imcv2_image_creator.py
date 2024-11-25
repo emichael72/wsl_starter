@@ -1771,11 +1771,6 @@ def wsl_runner_main() -> int:
             wsl_runner_print_status(TextType.BOTH, "Intel proxy is not available", True, InfoType.WARNING)
             intel_proxy_detected = False
 
-        # Prefer Windows terminal over the old command prompt
-        if wsl_runner_is_windows_terminal() == 1:
-            wsl_runner_print_status(TextType.BOTH, "Please run in Windows Terminal", True, InfoType.ERROR)
-            return 1
-
         # Make suer we have enough free disk spae
         if wsl_runner_get_free_disk_space(os.environ["USERPROFILE"]) < MCV2_WSL_DEFAULT_MIN_FREE_SPACE:
             wsl_runner_print_status(TextType.BOTH, "Insufficient free disk space", True, InfoType.ERROR)
