@@ -7,14 +7,14 @@
 #
 # Script Name:  imcv2_sdk_runner.sh
 # Description:  IMCv2 SDK auto starter.
-# Version:      1.2
+# Version:      1.3
 # Copyright:    2024 Intel Corporation.
 # Author:       Intel IMCv2 Team.
 #
 # ------------------------------------------------------------------------------
 
 # Script global variables
-script_version="1.2"
+script_version="1.3"
 
 #
 # @brief Generates the .gitconfig file based on the provided template.
@@ -116,6 +116,7 @@ runner_ensure_dt() {
 	# Define ANSI color codes
 	yellow="\033[93m"
 	light_blue="\033[94m"
+        bright_white="\033[1;37m"
 	reset="\033[0m"
 
 	# Check for .netrc and attempt to get a token
@@ -133,7 +134,8 @@ runner_ensure_dt() {
 	printf "\nIMCv2 'dt' Installer.\n"
 	printf -- "---------------------\n\n"
 	printf "'dt' is essential for enabling this WSL instance to access ${light_blue}Intel${reset} internal resources.\n"
-	printf "Ensure you have access to ${yellow}https://github.com/intel-innersource${reset}, and accept defaults when prompted.\n\n"
+	printf " ${bright_white}•${reset} Ensure you have access to ${yellow}https://github.com/intel-innersource${reset}\n"
+ 	printf " ${bright_white}•${reset} Accept defaults when prompted.\n\n"
 
 	# Check if 'dt' is installed
 	if [[ ! -f "$dt_path" ]]; then
