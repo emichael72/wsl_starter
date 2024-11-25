@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.5.1
+Version:      1.5.2
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -72,7 +72,7 @@ IMCV2_WSL_DEFAULT_DRIVE_LETTER = "W"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSL Creator"
-IMCV2_SCRIPT_VERSION = "1.5.1"
+IMCV2_SCRIPT_VERSION = "1.5.2"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -336,7 +336,6 @@ def wsl_runner_map_instance(drive_letter: str, instance_name: str = None, delete
         # Run the command and capture the output
         result = subprocess.run(command, capture_output=True, text=True)
         if result.returncode == 0:
-            print(result.stdout.strip())  # Print the success message
             return 0
         else:
             print(f"Error: {result.stderr.strip()}")
@@ -1173,7 +1172,7 @@ def run_install_git_config(instance_name, username, proxy_server, hidden=True, n
     # Define commands related to package installation
     steps_commands = [
         # Ensure the target directory exists
-        ("Creating target directory for Git completion scripts",
+        ("Creating target directory for Git scripts",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  f"sudo mkdir -p /usr/share/git-core/contrib/completion && sudo chown {username}:{username} "
                  f"/usr/share/git-core/contrib/completion"]),
@@ -1196,7 +1195,7 @@ def run_install_git_config(instance_name, username, proxy_server, hidden=True, n
 
         # Set a proper colored Git-aware prompt in .bashrc
         (
-            "Add Git prompt source and set Git-aware PS1 prompt in .bashrc",
+            "Set Git-aware PS1 prompt",
             "wsl", ["-d", instance_name, "--", "bash", "-c",
                     f"cat << 'EOF' >> /home/{username}/.bashrc\n"
                     f"\n# Git-aware PS1 prompt setup\n"
