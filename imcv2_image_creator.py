@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.6.0
+Version:      1.6.1
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -72,7 +72,7 @@ IMCV2_WSL_DEFAULT_DRIVE_LETTER = "W"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSL Creator"
-IMCV2_SCRIPT_VERSION = "1.6.0"
+IMCV2_SCRIPT_VERSION = "1.6.1"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -1266,7 +1266,7 @@ def run_install_system_packages(instance_name, username, proxy_server, hidden=Tr
         (f"Installing (a lot of) packages",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  f"xargs -a /home/{username}/downloads/{packages_file_name} -r sudo apt install -y "
-                 f"--ignore-missing -qq"],
+                 f"--ignore-missing"],
          True),
 
         # Installing packages from file (retry without ignoring errors)
