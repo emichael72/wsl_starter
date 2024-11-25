@@ -2,6 +2,7 @@
 # shellcheck disable=SC2317
 # shellcheck disable=SC2059
 # shellcheck disable=SC2181
+# shellcheck disable=SC2120
 # Formatting: shfmt -i 0 -w imcv2_sdk_runner.sh
 
 # ------------------------------------------------------------------------------
@@ -74,9 +75,9 @@ EOF
 
 runner_create_git_config() {
 
-	local template_name="$1"
-	local full_name="$2"
-	local email_address="$3"
+  local template_name="${1:-/home/$USER/.imcv2/imcv2_git_config.template}" # Use if not provided
+	local full_name="${2:-$IMCV2_FULL_NAME}" # Default to the exported corp. full name
+	local email_address="${3:-$IMCV2_EMAIL}" # Default to the exported corp. email address
 	local output_file="/home/$USER/.gitconfig"
 
 	# Ensure $http_proxy is set
@@ -210,6 +211,9 @@ runner_ensure_dt() {
 			return 1
 		fi
 	fi
+
+	# PLace defaults in the git config file, this will result in less question presented to the user.
+	runner_create_git_config
 
 	"$dt_path" setup
 	local setup_exit_code=$?
@@ -453,6 +457,7 @@ runner_place_simics_installer() {
 
 	return 0
 }
+
 #
 # @brief Main entry point for the script.
 # @details
@@ -466,11 +471,11 @@ runner_place_simics_installer() {
 
 main() {
 
-	local git_template_path="/home/$USER/.imcv2/imcv2_git_config.template"
 	local sdk_install_path="/home/$USER/projects/sdk/workspace"
 	local result=0
 	local ansi_cyan="\033[96m"
 	local ansi_reset="\033[0m"
+	local ansi_yellow="\033[93m"
 	local patch_mode=0 # Flag for patch mode
 
 	# Parse command-line arguments
@@ -500,7 +505,7 @@ main() {
 		-g | --git_config)
 			# Patch Git configuration using a template
 			shift
-			runner_create_git_config "$git_template_path" "$IMCV2_FULL_NAME" "$IMCV2_EMAIL"
+			runner_create_git_config
 			exit $?
 			;;
 		*)
@@ -521,19 +526,20 @@ main() {
 	echo -e "\033[?25h"
 
 	# Display version information
-	printf "\nIMCv2 WSL Autorun version ${ansi_cyan}${script_version}${ansi_reset}.\n"
-	printf -- "------------------------------\n\n"
+	printf "\nIMCv2 WSL Auto runner version ${ansi_cyan}${script_version}${ansi_reset}.\n"
+	printf -- "---------------------------------\n\n"
 
 	# Ensure devtools are installed
 	if runner_ensure_dt; then
 
 		# Pin the auto-start configuration
 		runner_pin_auto_start
-		# Patch git config
-		runner_create_git_config "$git_template_path" "$IMCV2_FULL_NAME" "$IMCV2_EMAIL"
 
 		# Install the IMCv2 SDK if not installed
 		if [[ -z "${IMCV2_INSTALL_PATH}" || ! -d "${IMCV2_INSTALL_PATH}" ]]; then
+
+			# Restore our preferred git config settings
+			runner_create_git_config
 
 			# Auto install the SDK if not installed
 			runner_install_sdk install "$sdk_install_path" 1
@@ -546,7 +552,7 @@ main() {
 				result=$?
 			fi
 		else
-			printf "Type 'im' to star the SDK.\n"
+			printf "Type '${ansi_yellow}im${ansi_reset}' to star the SDK.\n"
 		fi
 	fi
 
