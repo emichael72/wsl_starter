@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.6.1
+Version:      1.6.2
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -72,7 +72,7 @@ IMCV2_WSL_DEFAULT_DRIVE_LETTER = "W"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSL Creator"
-IMCV2_SCRIPT_VERSION = "1.6.1"
+IMCV2_SCRIPT_VERSION = "1.6.2"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -1434,31 +1434,29 @@ def run_kerberos_steps(instance_name: str, hidden: bool = True, new_line: bool =
         StepError: If any step in the process fails.
     """
     steps_commands = [
-        # Pre-seed Kerberos default realm
         ("Pre-seed default realm",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  "echo 'krb5-config krb5-config/default_realm string CLIENTS.INTEL.COM' | "
                  "sudo debconf-set-selections"]),
 
-        # Pre-seed Kerberos KDC servers
         ("Pre-seed KDC servers",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 "echo 'krb5-config krb5-config/kerberos_servers string "
-                 "kdc1.clients.intel.com kdc2.clients.intel.com' "
+                 "echo 'krb5-config krb5-config/kerberos_servers string kdc1.clients.intel.com kdc2.clients.intel.com' "
                  "| sudo debconf-set-selections"]),
 
-        # Pre-seed Kerberos admin server
         ("Pre-seed admin server",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  "echo 'krb5-config krb5-config/admin_server string admin.clients.intel.com' "
                  "| sudo debconf-set-selections"]),
 
-        # Install Kerberos client tools
         ("Install Kerberos client tools",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y krb5-config krb5-user"]),
 
-        # Restart WSL instance
+        ("Validate Kerberos configuration",
+         "wsl", ["-d", instance_name, "--", "bash", "-c",
+                 "sudo kinit -V some_user@CLIENTS.INTEL.COM || exit 1"]),
+
         ("Restart WSL instance",
          "wsl", ["--terminate", instance_name])
     ]
