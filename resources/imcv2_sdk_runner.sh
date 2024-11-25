@@ -7,14 +7,14 @@
 #
 # Script Name:  imcv2_sdk_runner.sh
 # Description:  IMCv2 SDK auto starter.
-# Version:      1.3
+# Version:      1.4
 # Copyright:    2024 Intel Corporation.
 # Author:       Intel IMCv2 Team.
 #
 # ------------------------------------------------------------------------------
 
 # Script global variables
-script_version="1.3"
+script_version="1.4"
 
 #
 # @brief Generates the .gitconfig file based on the provided template.
@@ -201,10 +201,10 @@ runner_install_sdk() {
 		return 1
 	fi
 
-	# Guard against dangerous paths
-	if [[ "$destination_path" == "/" || "$destination_path" == "/dev" || "$destination_path" == "/home" ]]; then
-		echo "Error: Unsafe destination path: $destination_path"
-		return 1
+	# Force only safe paths
+	if [[ "$destination_path" != "/home/$USER" && "$destination_path" != /home/$USER/* ]]; then
+	    	echo "Error: Destination path must be under /home/$USER"
+	    	return 1
 	fi
 
 	case "$action" in
