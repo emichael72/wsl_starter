@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.6.2
+Version:      1.6.3
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -72,7 +72,7 @@ IMCV2_WSL_DEFAULT_DRIVE_LETTER = "W"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSL Creator"
-IMCV2_SCRIPT_VERSION = "1.6.2"
+IMCV2_SCRIPT_VERSION = "1.6.3"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -1423,7 +1423,7 @@ def run_user_shell_steps(instance_name: str, username: str, proxy_server: str, h
 
 def run_kerberos_steps(instance_name: str, hidden: bool = True, new_line: bool = False):
     """
-    Configures Kerberos client support for a WSL instance.
+    Configures Kerberos authentication for a WSL instance.
 
     Args:
         instance_name (str): Name of the WSL instance to configure.
@@ -1433,38 +1433,46 @@ def run_kerberos_steps(instance_name: str, hidden: bool = True, new_line: bool =
     Raises:
         StepError: If any step in the process fails.
     """
+    # Define the steps for configuring Kerberos
     steps_commands = [
-        ("Pre-seed default realm",
+        # Setting Kerberos defaults
+        ("Setting Kerberos defaults",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 "echo 'krb5-config krb5-config/default_realm string CLIENTS.INTEL.COM' | "
-                 "sudo debconf-set-selections"]),
+                 "grep -q 'krb5-config/default_realm' /var/cache/debconf/config.dat || "
+                 "echo 'krb5-config krb5-config/default_realm string CLIENTS.INTEL.COM' "
+                 "| sudo debconf-set-selections"]),
 
-        ("Pre-seed KDC servers",
+        # Pre-seed Kerberos server hostnames
+        ("Pre-seed Kerberos server hostnames",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
+                 "grep -q 'krb5-config/kerberos_servers' /var/cache/debconf/config.dat || "
                  "echo 'krb5-config krb5-config/kerberos_servers string kdc1.clients.intel.com kdc2.clients.intel.com' "
                  "| sudo debconf-set-selections"]),
 
-        ("Pre-seed admin server",
+        # Pre-seed Kerberos administrative server
+        ("Pre-seed Kerberos administrative server",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
+                 "grep -q 'krb5-config/admin_server' /var/cache/debconf/config.dat || "
                  "echo 'krb5-config krb5-config/admin_server string admin.clients.intel.com' "
                  "| sudo debconf-set-selections"]),
 
-        ("Install Kerberos client tools",
+        # Install Kerberos packages non-interactively
+        ("Install Kerberos packages non-interactively",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y krb5-config krb5-user"]),
+                 "export DEBIAN_FRONTEND=noninteractive && "
+                 "dpkg -l | grep -q krb5-config || sudo apt install -y krb5-config krb5-user"]),
 
-        ("Validate Kerberos configuration",
-         "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 "sudo kinit -V some_user@CLIENTS.INTEL.COM || exit 1"]),
-
-        ("Restart WSL instance",
+        # Restart session for changes to take effect
+        ("Restarting session for changes to take effect",
          "wsl", ["--terminate", instance_name])
     ]
 
-    # Execute each step
-    for description, process, args in steps_commands:
-        if wsl_runner_run_process(description, process, args, hidden=hidden, new_line=new_line) != 0:
-            raise StepError(f"Step failed: {description}")
+    # Execute each command in the steps list
+    for description, process, args, *ignore_errors in steps_commands:
+        ignore_errors = ignore_errors[0] if ignore_errors else False
+        if wsl_runner_run_process(description, process, args, hidden=hidden, new_line=new_line,
+                                  ignore_errors=ignore_errors) != 0:
+            raise StepError(f"Failed during step: {description}")
 
 
 def run_time_zone_steps(instance_name, hidden=True, new_line=False):
