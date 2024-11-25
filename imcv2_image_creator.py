@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.4.7
+Version:      1.4.8
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -71,7 +71,7 @@ MCV2_WSL_DEFAULT_MIN_FREE_SPACE = 10 * (1024 ** 3)  # Minimum 10 Gigs of free di
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSL Creator"
-IMCV2_SCRIPT_VERSION = "1.4.7"
+IMCV2_SCRIPT_VERSION = "1.4.8"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -414,7 +414,7 @@ def wsl_runner_show_info(show_logo: bool = False):
     sys.stdout.write(f" {bright_white}•{reset} Create and import a new WSL Linux instance.\n")
     sys.stdout.write(f" {bright_white}•{reset} Configure system defaults and user environment.\n")
     sys.stdout.write(f" {bright_white}•{reset} Install essential packages for the {bright_white}IMCv2{reset} SDK.\n")
-    sys.stdout.write(f" {bright_white}•{reset} Your machine score: '{wsl_runner_classify_machine()}'\n\n")
+    sys.stdout.write(f" {bright_white}•{reset} Your machine score: '{wsl_runner_classify_machine()}'\n")
     sys.stdout.flush()
 
 
