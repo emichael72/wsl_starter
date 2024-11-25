@@ -8,14 +8,61 @@
 #
 # Script Name:  imcv2_sdk_runner.sh
 # Description:  IMCv2 SDK auto starter.
-# Version:      1.5
+# Version:      1.7
 # Copyright:    2024 Intel Corporation.
 # Author:       Intel IMCv2 Team.
 #
 # ------------------------------------------------------------------------------
 
 # Script global variables
-script_version="1.5"
+script_version="1.7"
+
+#
+# @brief Configures Kerberos by authenticating a user with a given username and password.
+# @param username The username to authenticate.
+# @param password The password for the provided username.
+# @param realm    (Optional) The Kerberos realm.
+# @return 0 on success, 1 on failure.
+#
+
+runner_configure_kerberos() {
+
+	local username="$1"
+	local password="$2"
+	local realm="${3:-GER.CORP.INTEL.COM}" # Default to GER.CORP.INTEL.COM if not provided
+
+	# Ensure all arguments are provided
+	if [[ -z "$username" || -z "$password" ]]; then
+		return 1 # Exit silently if arguments are missing
+	fi
+
+	# Ensure required package is installed (silent installation)
+	sudo apt install -y krb5-user >/dev/null 2>&1 || return 1
+
+	# Set correct permissions for /etc/krb5.conf (silent)
+	sudo chmod 644 /etc/krb5.conf >/dev/null 2>&1 || return 1
+	sudo chown root:root /etc/krb5.conf >/dev/null 2>&1 || return 1
+
+	# Use expect to automate 'kinit'
+	expect <<EOF >/dev/null 2>&1
+spawn kinit ${username}@${realm}
+expect {
+    "Password for ${username}@${realm}:" {
+        send "${password}\r"
+        exp_continue
+    }
+    "kinit: Password incorrect" {
+        exit 1
+    }
+    eof {
+        exit 0
+    }
+}
+EOF
+
+	# Return the exit code from expect
+	return $?
+}
 
 #
 # @brief Generates the .gitconfig file based on the provided template.
@@ -52,7 +99,6 @@ runner_create_git_config() {
 	# Check if the output file was created successfully, if so delete the template
 	# to prevent future modifications.
 	if [[ $? -eq 0 && -f "$output_file" ]]; then
-		rm -f "$template_name" >/dev/null 2>&1
 		return 0
 	else
 		echo "Error: Failed to create git configuration file."
@@ -260,8 +306,6 @@ runner_install_sdk() {
 			# SDK installed. Export the path now so we can immediately patch the missing Simics installation folder.
 			export IMCV2_INSTALL_PATH="$destination_path"
 
-			# Retrieve the Simics installation into /mnt/ci_tools to align with the Automation setup.
-			runner_place_simics_installer
 			exit_code=$?
 
 			# Return the exit code from the Simics installer function.
@@ -422,7 +466,7 @@ runner_place_simics_installer() {
 
 main() {
 
-	local git_template_path="/home/$USER/downloads/imcv2_git_config.template"
+	local git_template_path="/home/$USER/.imcv2/imcv2_git_config.template"
 	local sdk_install_path="/home/$USER/projects/sdk/workspace"
 	local result=0
 	local ansi_cyan="\033[96m"
@@ -440,6 +484,23 @@ main() {
 			# Install Simics locally
 			shift
 			runner_place_simics_installer "$@"
+			exit $?
+			;;
+		-k | --set_kerberos)
+			# Attempt to initiate Kerberos client, which is required by Simics
+			shift
+			if runner_configure_kerberos "$@"; then
+				echo "Kerberos setup succeeded."
+				exit 0
+			else
+				echo "Kerberos setup failed."
+				exit 1
+			fi
+			;;
+		-g | --git_config)
+			# Patch Git configuration using a template
+			shift
+			runner_create_git_config "$git_template_path" "$IMCV2_FULL_NAME" "$IMCV2_EMAIL"
 			exit $?
 			;;
 		*)
@@ -463,19 +524,27 @@ main() {
 	printf "\nIMCv2 WSL Autorun version ${ansi_cyan}${script_version}${ansi_reset}.\n"
 	printf -- "------------------------------\n\n"
 
-	# Create Git configuration
-	runner_create_git_config "$git_template_path" "$IMCV2_FULL_NAME" "$IMCV2_EMAIL"
-
 	# Ensure devtools are installed
 	if runner_ensure_dt; then
 
 		# Pin the auto-start configuration
 		runner_pin_auto_start
+		# Patch git config
+		runner_create_git_config "$git_template_path" "$IMCV2_FULL_NAME" "$IMCV2_EMAIL"
 
 		# Install the IMCv2 SDK if not installed
 		if [[ -z "${IMCV2_INSTALL_PATH}" || ! -d "${IMCV2_INSTALL_PATH}" ]]; then
+
+			# Auto install the SDK if not installed
 			runner_install_sdk install "$sdk_install_path" 1
 			result=$?
+
+			# Proceed to the next step only if the first one was successful
+			if [[ $result -eq 0 ]]; then
+				# Retrieve the Simics installation into /mnt/ci_tools to align with the Automation setup
+				runner_place_simics_installer
+				result=$?
+			fi
 		else
 			printf "Type 'im' to star the SDK.\n"
 		fi

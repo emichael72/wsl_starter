@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.5.2
+Version:      1.5.3
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -72,7 +72,7 @@ IMCV2_WSL_DEFAULT_DRIVE_LETTER = "W"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSL Creator"
-IMCV2_SCRIPT_VERSION = "1.5.2"
+IMCV2_SCRIPT_VERSION = "1.5.3"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -338,7 +338,6 @@ def wsl_runner_map_instance(drive_letter: str, instance_name: str = None, delete
         if result.returncode == 0:
             return 0
         else:
-            print(f"Error: {result.stderr.strip()}")
             return 1
     except Exception as e:
         # Handle unexpected exceptions
@@ -1003,11 +1002,11 @@ def run_post_install_steps(instance_name: str, username, proxy_server, hidden: b
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  (
                      f"curl -sS --proxy {proxy_server} "
-                     f"-o /home/{username}/downloads/{git_template_file_name} "
+                     f"-o /home/{username}/.imcv2/{git_template_file_name} "
                      f"{git_template_url}"
                      if intel_proxy_detected else
                      f"curl -sS "
-                     f"-o /home/{username}/downloads/{git_template_file_name} "
+                     f"-o /home/{username}/.imcv2/{git_template_file_name} "
                      f"{git_template_url}"
                  )
                  ]),
@@ -1876,14 +1875,13 @@ def wsl_runner_main() -> int:
         for i, (step_name, step_function) in enumerate(steps[args.start_step:], start=args.start_step):
             step_function()
 
+        # Silently attempt to map drive letter
+        wsl_runner_map_instance(IMCV2_WSL_DEFAULT_DRIVE_LETTER, instance_name, True)
+
         print("\nImage creation completed, you may close this window.\n")
 
         # Start WSL instance, setup will continue for there.
         wsl_runner_start_wsl_shell(instance_name)
-
-        # Silently attempt to map drive letter
-        wsl_runner_map_instance(IMCV2_WSL_DEFAULT_DRIVE_LETTER, instance_name, True)
-
         return 0
 
     except StepError as step_error:
