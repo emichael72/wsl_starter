@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.5.4b
+Version:      1.5.5
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -72,7 +72,7 @@ IMCV2_WSL_DEFAULT_DRIVE_LETTER = "W"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSL Creator"
-IMCV2_SCRIPT_VERSION = "1.5.4b"
+IMCV2_SCRIPT_VERSION = "1.5.45"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -1361,12 +1361,12 @@ def run_user_shell_steps(instance_name: str, username: str, proxy_server: str, h
         (
             "Setting environment variables",
             "wsl", ["-d", instance_name, "--", "bash", "-c",
-                    f"""grep -q 'export GDK_BACKEND=x11' /home/{username}/.bashrc || echo 'export GDK_BACKEND=x11' >> 
-                    /home/{username}/.bashrc &&
-                grep -q 'export SWT_GTK3=1' /home/{username}/.bashrc || echo 'export SWT_GTK3=1' >> 
-                /home/{username}/.bashrc &&
-                grep -q 'export IMCV2_BUILD_MAX_CORES=$(nproc)' /home/{username}/.bashrc || 
-                echo 'export IMCV2_BUILD_MAX_CORES=$(nproc)' >> /home/{username}/.bashrc"""
+                    f"""grep -q 'export GDK_BACKEND=x11' /home/{username}/.bashrc || \
+        echo 'export GDK_BACKEND=x11' >> /home/{username}/.bashrc && """
+                    f"""grep -q 'export SWT_GTK3=1' /home/{username}/.bashrc || \
+        echo 'export SWT_GTK3=1' >> /home/{username}/.bashrc && """
+                    f"""grep -q 'export IMCV2_BUILD_MAX_CORES=$(nproc)' /home/{username}/.bashrc || \
+        echo 'export IMCV2_BUILD_MAX_CORES=$(nproc)' >> /home/{username}/.bashrc"""
                     ]
         ),
         # Create necessary directories
