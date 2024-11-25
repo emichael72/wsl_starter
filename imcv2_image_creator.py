@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.4.6
+Version:      1.4.7
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -71,7 +71,7 @@ MCV2_WSL_DEFAULT_MIN_FREE_SPACE = 10 * (1024 ** 3)  # Minimum 10 Gigs of free di
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSL Creator"
-IMCV2_SCRIPT_VERSION = "1.4.6"
+IMCV2_SCRIPT_VERSION = "1.4.7"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -165,7 +165,8 @@ def wsl_runner_get_cpu_cores():
 def wsl_runner_classify_machine():
     """
        Classifies the host machine into one of 5 categories.
-       """
+    """
+
     # Dictionary to translate scores into classification strings
     score_to_classification = {
         0: "Colossal tragedy 🐌",
@@ -233,6 +234,30 @@ def wsl_runner_classify_machine():
     return score_to_classification[final_score]
 
 
+def wsl_runner_which(executable_names: list) -> int:
+    """
+    Check if all executables in the list exist in the search path on Windows.
+
+    Parameters:
+        executable_names (list): A list of executable names to check.
+
+    Returns:
+        int: 0 if all executables exist, 1 if any executable does not exist.
+    """
+    try:
+        for executable_name in executable_names:
+            # Run the 'where' command to check for each executable
+            result = subprocess.run(['where', executable_name], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if result.returncode != 0:
+                # If any executable does not exist, return 1
+                return 1
+        # All executables exist
+        return 0
+    except Exception as e:
+        print(f"Error while checking executables: {e}")
+        return 1
+
+
 def wsl_runner_get_resource_tuple_by_name(resource_name):
     """
     Retrieves the file name and constructed URL for a given resource name.
@@ -278,6 +303,32 @@ def wsl_runner_get_free_disk_space(path):
         # Return -1 on error
         print(f"Exception: {e}")
         return -1
+
+
+def wsl_runner_is_windows_terminal() -> int:
+    """
+    Check if the script is being executed in Windows Terminal.
+
+    Returns:
+        int: 0 if running in Windows Terminal, 1 otherwise.
+    """
+    try:
+        # Get the parent process ID (PPID) of the current process
+        ppid = os.getppid()
+
+        # Run the tasklist command to get the parent process name
+        result = subprocess.run(
+            ['tasklist', '/FI', f'PID eq {ppid}'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+
+        # Check if WindowsTerminal is in the output
+        return 0 if "WindowsTerminal.exe" in result.stdout else 1
+    except Exception as e:
+        print(f"Error while checking terminal: {e}")
+        return 1
 
 
 def wsl_runner_get_office_user_identity():
@@ -356,7 +407,7 @@ def wsl_runner_show_info(show_logo: bool = False):
         wsl_runner_print_logo()
 
     sys.stdout.write(f"\n{bright_white}IMCv2{reset} SDK WSL v{IMCV2_SCRIPT_VERSION} image creator.\n")
-    sys.stdout.write("-" * 36)
+    sys.stdout.write("-" * 35)
     sys.stdout.write("\n\n")
     sys.stdout.write(f"Here's what's next:\n\n")
     sys.stdout.write(f" {bright_white}•{reset} Download a compatible Ubuntu image (ubuntu-base-24.04.1).\n")
@@ -1696,36 +1747,43 @@ def wsl_runner_main() -> int:
         print("Error: Instance name argument (-n) is mandatory.")
         return 1
 
+    username = os.getlogin()
+    instance_name = args.name
+    global intel_proxy_detected
+
+    # Set variables based on default are arguments if provided
+    password = args.password if args.password else MCV2_WSL_DEFAULT_PASSWORD
+    base_path = args.base_path if args.base_path else IMCV2_WSL_DEFAULT_BASE_PATH
+    proxy_server = args.proxy_server if args.proxy_server else IMCV2_WSL_DEFAULT_INTEL_PROXY
+    ubuntu_url = args.ubuntu_url if args.ubuntu_url else IMCV2_WSL_DEFAULT_UBUNTU_URL
+    instance_path = os.path.join(base_path, IMCV2_WSL_DEFAULT_SDK_INSTANCES_PATH)
+    bare_linux_image_path = os.path.join(base_path, IMCV2_WSL_DEFAULT_LINUX_IMAGE_PATH)
+
+    # Construct file paths
+    bare_linux_image_file = os.path.join(bare_linux_image_path, os.path.basename(urlparse(ubuntu_url).path))
+
     try:
-
-        # Remove current shortcut (if exist)
-        wsl_runner_delete_shortcut("IMCv2 SDK")
-
-        username = os.getlogin()
-        instance_name = args.name
-        global intel_proxy_detected
-
-        # Set variables based on default are arguments if provided
-        password = args.password if args.password else MCV2_WSL_DEFAULT_PASSWORD
-        base_path = args.base_path if args.base_path else IMCV2_WSL_DEFAULT_BASE_PATH
-        proxy_server = args.proxy_server if args.proxy_server else IMCV2_WSL_DEFAULT_INTEL_PROXY
-        ubuntu_url = args.ubuntu_url if args.ubuntu_url else IMCV2_WSL_DEFAULT_UBUNTU_URL
-        instance_path = os.path.join(base_path, IMCV2_WSL_DEFAULT_SDK_INSTANCES_PATH)
-        bare_linux_image_path = os.path.join(base_path, IMCV2_WSL_DEFAULT_LINUX_IMAGE_PATH)
-
-        # Construct file paths
-        bare_linux_image_file = os.path.join(bare_linux_image_path, os.path.basename(urlparse(ubuntu_url).path))
 
         wsl_runner_show_info()
 
-        # This is designed to work at Intel
+        # This script is designed to work at Intel
         if not wsl_runner_is_proxy_available(proxy_server):
             wsl_runner_print_status(TextType.BOTH, "Intel proxy is not available", True, InfoType.WARNING)
             intel_proxy_detected = False
 
-        # Mka e suer we have enough free disk spae
+        # Prefer Windows terminal over the old command prompt
+        if wsl_runner_is_windows_terminal() == 1:
+            wsl_runner_print_status(TextType.BOTH, "Please run in Windows Terminal", True, InfoType.ERROR)
+            return 1
+
+        # Make suer we have enough free disk spae
         if wsl_runner_get_free_disk_space(os.environ["USERPROFILE"]) < MCV2_WSL_DEFAULT_MIN_FREE_SPACE:
             wsl_runner_print_status(TextType.BOTH, "Insufficient free disk space", True, InfoType.ERROR)
+            return 1
+
+        # Make sure we have few essentials tools in the system search path
+        if (wsl_runner_which(["curl"])) == 1:
+            wsl_runner_print_status(TextType.BOTH, "Basic system utilities are missing", True, InfoType.ERROR)
             return 1
 
         # Define all steps as a list of tuples (step_name, function_call)
@@ -1750,6 +1808,8 @@ def wsl_runner_main() -> int:
             raise ValueError(f"Invalid start step: {args.start_step}. Must be between 0 and {len(steps) - 1}.")
 
         print("\033[?25l")  # Hide the cursor
+        wsl_runner_delete_shortcut("IMCv2 SDK")  # Remove current shortcut (if exist)
+
         for i, (step_name, step_function) in enumerate(steps[args.start_step:], start=args.start_step):
             step_function()
 
