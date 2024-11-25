@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.4.5
+Version:      1.4.6
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -48,6 +48,8 @@ import argparse
 import itertools
 import shutil
 import re
+import platform
+import ctypes
 import subprocess
 import sys
 import time
@@ -68,8 +70,8 @@ MCV2_WSL_DEFAULT_PASSWORD = "intel@1234"
 MCV2_WSL_DEFAULT_MIN_FREE_SPACE = 10 * (1024 ** 3)  # Minimum 10 Gogs of free disk space
 
 # Script version
-IMCV2_SCRIPT_NAME = "WSLCreator"
-IMCV2_SCRIPT_VERSION = "1.4.5"
+IMCV2_SCRIPT_NAME = "WSL Creator"
+IMCV2_SCRIPT_VERSION = "1.4.6"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -140,7 +142,97 @@ class TextType(Enum):
     BOTH = 3
 
 
-#
+def wsl_runner_get_physical_ram():
+    """
+    Returns the total physical RAM installed on the system in GB.
+    """
+    kernel32 = ctypes.windll.kernel32
+    memory_status = ctypes.c_ulonglong()
+    kernel32.GetPhysicallyInstalledSystemMemory(ctypes.byref(memory_status))
+    return round(memory_status.value / (1024 ** 2), 2)  # Convert KB to GB
+
+
+def wsl_runner_get_cpu_cores():
+    """
+    Returns the number of physical CPU cores.
+    """
+    try:
+        return os.cpu_count()  # Total logical cores (threads)
+    except AttributeError:
+        return 1  # Default to 1 if os.cpu_count() is unavailable
+
+
+def wsl_runner_classify_machine():
+    """
+       Classifies the host machine into one of 5 categories.
+       """
+    # Dictionary to translate scores into classification strings
+    score_to_classification = {
+        0: "Colossal tragedy 🐌",
+        1: "Not something to write home about 🧑🏽‍🦽",
+        2: "Not the latest Mac but It will get the job done 🥔",
+        3: "Not a gaming rig, but not too bad 🥉",
+        4: "Intergalactic Quantum Mega Brain 🚀🧠✨"
+    }
+
+    # Get physical hardware RAM
+    ram_gb = wsl_runner_get_physical_ram()
+
+    # Get number of CPU cores
+    core_count = wsl_runner_get_cpu_cores()
+
+    # Get CPU type
+    cpu_type = platform.processor().lower()
+
+    # Determine RAM score (0 to 4)
+    if ram_gb < 8:
+        ram_score = 0
+    elif 8 <= ram_gb < 16:
+        ram_score = 1
+    elif 16 <= ram_gb < 24:
+        ram_score = 2
+    elif 24 <= ram_gb < 32:
+        ram_score = 3
+    else:
+        ram_score = 4
+
+    # Determine core count score (0 to 4)
+    if core_count <= 2:
+        core_score = 0
+    elif 3 <= core_count <= 4:
+        core_score = 1
+    elif 5 <= core_count <= 8:
+        core_score = 2
+    elif 9 <= core_count <= 12:
+        core_score = 3
+    else:
+        core_score = 4
+
+    # Bonus for processor type
+    bonus = 0
+    if "i7" in cpu_type or "i9" in cpu_type:
+        bonus += 1  # Bonus for higher-end processors
+    if "11th" in cpu_type or "12th" in cpu_type or "13th" in cpu_type:
+        bonus += 1  # Bonus for newer generations
+
+    # Combine scores
+    combined_score = (ram_score + core_score + bonus) / 2
+
+    # Translate combined score to classification
+    if combined_score <= 0.5:
+        final_score = 0
+    elif combined_score <= 1.5:
+        final_score = 1
+    elif combined_score <= 2.5:
+        final_score = 2
+    elif combined_score <= 3.5:
+        final_score = 3
+    else:
+        final_score = 4
+
+    return score_to_classification[final_score]
+
+
 def wsl_runner_get_resource_tuple_by_name(resource_name):
     """
     Retrieves the file name and constructed URL for a given resource name.
@@ -251,10 +343,7 @@ def wsl_runner_print_logo():
 def wsl_runner_show_info(show_logo: bool = False):
     """
         Provides detailed information about the steps performed by
-        the IMCv2 WSL installer. It outlines the tasks, such as downloading a
-        Linux image, setting up a WSL instance, configuring the environment, and
-        installing necessary packages for the SDK. The message is formatted to
-        be easily readable within an 80-character width terminal.
+        the IMCv2 WSL installer.
     """
 
     reset = "\033[0m"
@@ -273,7 +362,8 @@ def wsl_runner_show_info(show_logo: bool = False):
     sys.stdout.write(f" {bright_white}•{reset} Download a compatible Ubuntu image (ubuntu-base-24.04.1).\n")
     sys.stdout.write(f" {bright_white}•{reset} Create and import a new WSL Linux instance.\n")
     sys.stdout.write(f" {bright_white}•{reset} Configure system defaults and user environment.\n")
-    sys.stdout.write(f" {bright_white}•{reset} Install essential packages for the {bright_white}IMCv2{reset} SDK.\n\n")
+    sys.stdout.write(f" {bright_white}•{reset} Install essential packages for the {bright_white}IMCv2{reset} SDK.\n")
+    sys.stdout.write(f" {bright_white}•{reset} Your machine score: '{wsl_runner_classify_machine()}'\n\n")
     sys.stdout.flush()
 
 
@@ -1627,7 +1717,6 @@ def wsl_runner_main() -> int:
         bare_linux_image_file = os.path.join(bare_linux_image_path, os.path.basename(urlparse(ubuntu_url).path))
 
         wsl_runner_show_info()
-        sys.stdout.write("\033[?25l")  # Hide the cursor
 
         # This is designed to work at Intel
         if not wsl_runner_is_proxy_available(proxy_server):
@@ -1660,6 +1749,7 @@ def wsl_runner_main() -> int:
         if args.start_step < 0 or args.start_step >= len(steps):
             raise ValueError(f"Invalid start step: {args.start_step}. Must be between 0 and {len(steps) - 1}.")
 
+        print("\033[?25l")  # Hide the cursor
         for i, (step_name, step_function) in enumerate(steps[args.start_step:], start=args.start_step):
             step_function()
 
@@ -1674,7 +1764,7 @@ def wsl_runner_main() -> int:
         print(f"\nError: {step_error}")
     except KeyboardInterrupt:
         # Handle user interruption gracefully
-        print("\nOperation interrupted by the user. Exiting...")
+        print("\nOperation interrupted by the user, exiting...")
     except Exception as general_error:
         # Handle unexpected exceptions
         print(f"\nException: {general_error}")
