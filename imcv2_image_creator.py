@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.6.3
+Version:      1.6.4
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -72,7 +72,7 @@ IMCV2_WSL_DEFAULT_DRIVE_LETTER = "W"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSL Creator"
-IMCV2_SCRIPT_VERSION = "1.6.3"
+IMCV2_SCRIPT_VERSION = "1.6.4"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -1477,53 +1477,80 @@ def run_kerberos_steps(instance_name: str, hidden: bool = True, new_line: bool =
 
 def run_time_zone_steps(instance_name, hidden=True, new_line=False):
     """
-    Configures the timezone to Asia/Jerusalem and ensures US English settings in a WSL instance.
+    Configures timezone and console settings for a specified WSL instance.
 
-    This function performs:
-    1. Pre-seeding tzdata for the Israel timezone (Asia/Jerusalem).
-    2. Setting the system timezone to Asia/Jerusalem.
-    3. Ensuring tzdata is installed and reconfigured.
-    4. Restarting the WSL instance to apply changes.
+    This function automates a series of steps to:
+    1. Pre-seed timezone data (tzdata) for the Israel timezone in the WSL instance.
+    2. Set the system timezone to Asia/Jerusalem.
+    3. Ensure the tzdata package is installed.
+    4. Reconfigure tzdata non-interactively.
+    5. Configure the console to use Hebrew character sets and fonts.
+    6. Install the console-setup package in a non-interactive mode.
+    7. Restart the WSL session to apply changes.
 
     Parameters:
         instance_name (str): The name of the WSL instance to configure.
-        hidden (bool, optional): Whether to hide command output. Default is True.
+        hidden (bool, optional): Whether to hide the command output. Default is True.
         new_line (bool, optional): Whether to add a new line after each step's output. Default is False.
     """
 
     steps_commands = [
         # Pre-seed tzdata configuration for Israel timezone
-        ("Pre-seed tzdata for Israel timezone",
+        ("Pre-seed tzdata for Israel Area",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  "echo 'tzdata tzdata/Areas select Asia' | sudo debconf-set-selections"]),
-        ("Pre-seed tzdata for Jerusalem",
+
+        ("Pre-seed tzdata for Israel",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  "echo 'tzdata tzdata/Zones/Asia select Jerusalem' | sudo debconf-set-selections"]),
 
         # Set timezone in WSL instance
-        ("Set timezone to Asia/Jerusalem",
-         "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 "sudo ln -fs /usr/share/zoneinfo/Asia/Jerusalem /etc/localtime"]),
+        ("Set timezone in WSL instance",
+         "wsl",
+         ["-d", instance_name, "--", "bash", "-c", "sudo ln -fs /usr/share/zoneinfo/Asia/Jerusalem /etc/localtime"]),
 
-        # Ensure tzdata package is installed
-        ("Ensure tzdata is installed",
-         "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 "dpkg -l | grep tzdata || sudo apt-get install -y tzdata"]),
+        # Check and install tzdata if not installed
+        ("Ensure tzdata package is installed",
+         "wsl", ["-d", instance_name, "--", "bash", "-c", "dpkg -l | grep tzdata || sudo apt-get install -y tzdata"]),
 
         # Reconfigure tzdata
         ("Reconfigure tzdata",
+         "wsl", ["-d", instance_name, "--", "bash", "-c", "sudo dpkg-reconfigure -f noninteractive tzdata"]),
+
+        # Pre-seed console-setup for Hebrew character set
+        ("Pre-seed console Hebrew character set",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 "sudo dpkg-reconfigure -f noninteractive tzdata"]),
+                 "echo 'console-setup console-setup/charmap47 select UTF-8' | sudo debconf-set-selections"]),
+
+        ("Pre-seed console Hebrew character",
+         "wsl", ["-d", instance_name, "--", "bash", "-c",
+                 "echo 'console-setup console-setup/codeset47 select Hebrew' | sudo debconf-set-selections"]),
+
+        ("Pre-seed console Hebrew character Fixed font",
+         "wsl", ["-d", instance_name, "--", "bash", "-c",
+                 "echo 'console-setup console-setup/fontface47 select Fixed' | sudo debconf-set-selections"]),
+
+        ("Pre-seed console Hebrew character Font size",
+         "wsl", ["-d", instance_name, "--", "bash", "-c",
+                 "echo 'console-setup console-setup/fontsize-text47 select 16' | sudo debconf-set-selections"]),
+
+        # Install console-setup in non-interactive mode
+        ("Install console-setup in non-interactive mode",
+         "wsl", ["-d", instance_name, "--", "bash", "-c",
+                 "export DEBIAN_FRONTEND=noninteractive && sudo apt install -y console-setup"]),
 
         # Restart session for changes to take effect
-        ("Restart WSL instance",
+        ("Restarting session for changes to take effect",
          "wsl", ["--terminate", instance_name])
     ]
 
     # Execute each command in the steps commands list
-    for description, process, args in steps_commands:
-        if wsl_runner_run_process(description, process, args, hidden=hidden, new_line=new_line) != 0:
-            raise StepError(f"Failed to complete step: {description}")
+    for description, process, args, *ignore_errors in steps_commands:
+        # If ignore_errors is not specified, default it to False
+        ignore_errors = ignore_errors[0] if ignore_errors else False
+        if wsl_runner_run_process(description, process, args, hidden=hidden, new_line=new_line,
+                                  ignore_errors=ignore_errors) != 0:
+            raise StepError("Failed to complete step")
 
 
 def run_user_creation_steps(instance_name: str, username: str, password: str, hidden: bool = True,
