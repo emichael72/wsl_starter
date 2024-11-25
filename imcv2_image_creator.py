@@ -67,7 +67,7 @@ IMCV2_WSL_DEFAULT_UBUNTU_URL = ("https://cdimage.ubuntu.com/ubuntu-base/releases
                                 "ubuntu-base-24.04.1-base-amd64.tar.gz")
 IMCV2_WSL_DEFAULT_RESOURCES_URL = "https://raw.githubusercontent.com/emichael72/wsl_starter/main/resources"
 MCV2_WSL_DEFAULT_PASSWORD = "intel@1234"
-MCV2_WSL_DEFAULT_MIN_FREE_SPACE = 10 * (1024 ** 3)  # Minimum 10 Gogs of free disk space
+MCV2_WSL_DEFAULT_MIN_FREE_SPACE = 10 * (1024 ** 3)  # Minimum 10 Gigs of free disk space
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSL Creator"
