@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.5.0
+Version:      1.5.1
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -66,12 +66,13 @@ IMCV2_WSL_DEFAULT_SDK_INSTANCES_PATH = "Instances"
 IMCV2_WSL_DEFAULT_UBUNTU_URL = ("https://cdimage.ubuntu.com/ubuntu-base/releases/24.04.1/release/"
                                 "ubuntu-base-24.04.1-base-amd64.tar.gz")
 IMCV2_WSL_DEFAULT_RESOURCES_URL = "https://raw.githubusercontent.com/emichael72/wsl_starter/main/resources"
-MCV2_WSL_DEFAULT_PASSWORD = "intel@1234"
-MCV2_WSL_DEFAULT_MIN_FREE_SPACE = 10 * (1024 ** 3)  # Minimum 10 Gigs of free disk space
+IMCV2_WSL_DEFAULT_PASSWORD = "intel@1234"
+IMCV2_WSL_DEFAULT_MIN_FREE_SPACE = 10 * (1024 ** 3)  # Minimum 10 Gigs of free disk space
+IMCV2_WSL_DEFAULT_DRIVE_LETTER = "W"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSL Creator"
-IMCV2_SCRIPT_VERSION = "1.5.0"
+IMCV2_SCRIPT_VERSION = "1.5.1"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -307,6 +308,43 @@ def wsl_runner_get_free_disk_space(path):
         # Return -1 on error
         print(f"Exception: {e}")
         return -1
+
+
+def wsl_runner_map_instance(drive_letter: str, instance_name: str = None, delete: bool = True) -> int:
+    """
+    Simplifies mapping or deleting a WSL instance as a network drive.
+
+    Args:
+        drive_letter (str): The drive letter to use (e.g., "W").
+        instance_name (str): The name of the WSL instance to map. Required if 'delete' is False.
+        delete (bool): If True, delete the mapped drive. Otherwise, map the instance.
+
+    Returns:
+        int: 0 on success, 1 on failure.
+    """
+    if delete:
+        # Command to delete the network drive
+        command = ["net", "use", drive_letter + ":", "/del"]
+    else:
+        if not instance_name:
+            return 1  # Mandatory argument missing
+
+        # Command to map the WSL instance
+        command = ["net", "use", drive_letter + ":", f"\\\\wsl$\\{instance_name}"]
+
+    try:
+        # Run the command and capture the output
+        result = subprocess.run(command, capture_output=True, text=True)
+        if result.returncode == 0:
+            print(result.stdout.strip())  # Print the success message
+            return 0
+        else:
+            print(f"Error: {result.stderr.strip()}")
+            return 1
+    except Exception as e:
+        # Handle unexpected exceptions
+        print(f"Unexpected error: {str(e)}")
+        return 1
 
 
 def wsl_runner_is_windows_terminal() -> int:
@@ -1760,7 +1798,7 @@ def wsl_runner_main() -> int:
                              f"'{IMCV2_WSL_DEFAULT_UBUNTU_URL}'.")
     parser.add_argument("-p", "--password",
                         help=f"Specify the initial user password instead of  "
-                             f"'{MCV2_WSL_DEFAULT_PASSWORD}'.")
+                             f"'{IMCV2_WSL_DEFAULT_PASSWORD}'.")
     parser.add_argument("-ver", "--version", action="store_true", help="Display version information.")
     args = parser.parse_args()
 
@@ -1782,7 +1820,7 @@ def wsl_runner_main() -> int:
     global intel_proxy_detected
 
     # Set variables based on default are arguments if provided
-    password = args.password if args.password else MCV2_WSL_DEFAULT_PASSWORD
+    password = args.password if args.password else IMCV2_WSL_DEFAULT_PASSWORD
     base_path = args.base_path if args.base_path else IMCV2_WSL_DEFAULT_BASE_PATH
     proxy_server = args.proxy_server if args.proxy_server else IMCV2_WSL_DEFAULT_INTEL_PROXY
     ubuntu_url = args.ubuntu_url if args.ubuntu_url else IMCV2_WSL_DEFAULT_UBUNTU_URL
@@ -1802,7 +1840,7 @@ def wsl_runner_main() -> int:
             intel_proxy_detected = False
 
         # Make suer we have enough free disk spae
-        if wsl_runner_get_free_disk_space(os.environ["USERPROFILE"]) < MCV2_WSL_DEFAULT_MIN_FREE_SPACE:
+        if wsl_runner_get_free_disk_space(os.environ["USERPROFILE"]) < IMCV2_WSL_DEFAULT_MIN_FREE_SPACE:
             wsl_runner_print_status(TextType.BOTH, "Insufficient free disk space", True, InfoType.ERROR)
             return 1
 
@@ -1834,6 +1872,7 @@ def wsl_runner_main() -> int:
 
         print("\033[?25l")  # Hide the cursor
         wsl_runner_delete_shortcut("IMCv2 SDK")  # Remove current shortcut (if exist)
+        wsl_runner_map_instance(IMCV2_WSL_DEFAULT_DRIVE_LETTER)  # Delete Windows mapped drive (if we have it)
 
         for i, (step_name, step_function) in enumerate(steps[args.start_step:], start=args.start_step):
             step_function()
@@ -1842,6 +1881,10 @@ def wsl_runner_main() -> int:
 
         # Start WSL instance, setup will continue for there.
         wsl_runner_start_wsl_shell(instance_name)
+
+        # Silently attempt to map drive letter
+        wsl_runner_map_instance(IMCV2_WSL_DEFAULT_DRIVE_LETTER, instance_name, True)
+
         return 0
 
     except StepError as step_error:
