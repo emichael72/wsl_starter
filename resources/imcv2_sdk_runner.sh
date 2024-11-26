@@ -183,7 +183,8 @@ runner_ensure_dt() {
 	printf -- "---------------------\n\n"
 	printf "'dt' is essential for enabling this WSL instance to access ${light_blue}Intel${reset} internal resources.\n"
 	printf " ${bright_white}•${reset} Ensure you have access to ${yellow}https://github.com/intel-innersource${reset}\n"
-	printf " ${bright_white}•${reset} Accept defaults when prompted.\n\n"
+	printf " ${bright_white}•${reset} Accept defaults when prompted.\n"
+ 	printf " ${bright_white}•${reset} Tip: URLs in the terminal can be opened using Ctrl + Click.\n\n"
 
 	# Check if 'dt' is installed
 	if [[ ! -f "$dt_path" ]]; then
