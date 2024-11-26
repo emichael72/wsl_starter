@@ -182,8 +182,7 @@ runner_ensure_dt() {
 	printf -- "---------------------\n\n"
 	printf "'dt' is essential for enabling this WSL instance to access ${light_blue}Intel${reset} internal resources.\n"
 	printf " ${bright_white}•${reset} Ensure you have access to ${yellow}https://github.com/intel-innersource${reset}\n"
-	printf " ${bright_white}•${reset} Accept defaults when prompted.\n"
-	printf " ${light_blue}•${reset} Tip: URLs in the terminal can be opened using Ctrl + Click.\n\n"
+	printf " ${bright_white}•${reset} Accept defaults when prompted.\n\n"
 
 	# Check if 'dt' is installed
 	if [[ ! -f "$dt_path" ]]; then
@@ -333,6 +332,19 @@ runner_install_sdk() {
 		return 1
 		;;
 	esac
+}
+
+#
+# @brief Resets the WSL instance by restarting the WSL session.
+# @return Always returns 0.
+#
+
+runner_wsl_reset() {
+
+	wt.exe -w 0 -p "$WSL_DISTRO_NAME" -- wsl.exe &&
+		wsl.exe --terminate "$WSL_DISTRO_NAME" &&
+		wsl.exe
+	return 0
 }
 
 #
@@ -508,6 +520,7 @@ main() {
 		printf "  -k, --set_kerberos       Configure Kerberos and exit.\n"
 		printf "  -g, --git_config         Apply Git configuration and exit.\n"
 		printf "  -i, --install_path PATH  Override default SDK install path.\n"
+		printf "  -r, --restart_wsl        Restart the WSL Session.\n"
 		printf "\n"
 		exit 0
 	fi
@@ -540,6 +553,11 @@ main() {
 			shift
 			runner_create_git_config || result=$?
 			exit $result
+			;;
+		-r | --restart_wsl)
+			shift
+			runner_wsl_reset
+			exit 0
 			;;
 		-i | --install_path)
 			shift
@@ -583,8 +601,12 @@ main() {
 
 				# Add Simics installer to /mnt/ci_tools: a WSL specific step.
 				runner_place_simics_installer || result=$?
-				if [[ result -ne 0 ]]; then
+				if [[ result -eq 0 ]]; then
 					printf "${ansi_yellow}Warning${ansi_reset}: Simics local installer step did not complete.\n"
+				else
+					printf "Restarting... "
+					sleep 2
+					runner_wsl_reset
 				fi
 
 			fi
