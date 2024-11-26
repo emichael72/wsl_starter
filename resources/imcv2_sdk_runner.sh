@@ -8,15 +8,15 @@
 # ------------------------------------------------------------------------------
 #
 # Script Name:  imcv2_sdk_runner.sh
-# Description:  IMCv2 SDK auto starter.
-# Version:      1.7
+# Description:  IMCv2 SDK for WSL auto-start and maintenance.
+# Version:      2.0
 # Copyright:    2024 Intel Corporation.
 # Author:       Intel IMCv2 Team.
 #
 # ------------------------------------------------------------------------------
 
 # Script global variables
-script_version="1.7"
+script_version="2.0"
 
 #
 # @brief Configures Kerberos by authenticating a user with a given username and password.
@@ -75,14 +75,14 @@ EOF
 
 runner_create_git_config() {
 
-  local template_name="${1:-/home/$USER/.imcv2/imcv2_git_config.template}" # Use if not provided
-	local full_name="${2:-$IMCV2_FULL_NAME}" # Default to the exported corp. full name
-	local email_address="${3:-$IMCV2_EMAIL}" # Default to the exported corp. email address
-	local output_file="/home/$USER/.gitconfig"
+	local template_name="${1:-/home/$USER/.imcv2/imcv2_git_config.template}" # Use if not provided
+	local corp_name="${2:-$IMCV2_FULL_NAME}"                                 # Default to the exported corp. full name
+	local corp_email="${3:-$IMCV2_EMAIL}"                                    # Default to the exported corp. email address
+	local git_config_file="/home/$USER/.gitconfig"
 
 	# Ensure $http_proxy is set
 	if [[ -z "$http_proxy" ]]; then
-		echo "Error: \$http_proxy environment variable is not set."
+		echo "Error: Proxy environment variable is not set."
 		return 1
 	fi
 
@@ -93,13 +93,12 @@ runner_create_git_config() {
 
 	# Generate the .gitconfig file by replacing placeholders
 	sed -e "s|{proxy_server_port}|$http_proxy|g" \
-		-e "s|{corp_email}|$email_address|g" \
-		-e "s|{corp_name}|$full_name|g" \
-		"$template_name" >"$output_file"
+		-e "s|{corp_email}|$corp_email|g" \
+		-e "s|{corp_name}|$corp_name|g" \
+		"$template_name" >"$git_config_file"
 
-	# Check if the output file was created successfully, if so delete the template
-	# to prevent future modifications.
-	if [[ $? -eq 0 && -f "$output_file" ]]; then
+	# Check if the output git configuration was created successfully.
+	if [[ $? -eq 0 && -f "$git_config_file" ]]; then
 		return 0
 	else
 		echo "Error: Failed to create git configuration file."
@@ -193,32 +192,33 @@ runner_ensure_dt() {
 
 		# Check if download went OK
 		if [[ $? -ne 0 || ! -f "$dt_download_path" ]]; then
-			printf "Error: Failed to download 'dt' tool\n"
+			printf "Error: Failed to download 'dt'.\n"
 			return 1
 		fi
 
 		# Make it executable
 		chmod +x "$dt_download_path" 2>/dev/null
 		if [[ $? -ne 0 ]]; then
-			printf "Error: Failed to make 'dt' executable\n"
+			printf "Error: Failed to make 'dt' executable.\n"
 			return 1
 		fi
 
 		# Execute 'dt' for installation
 		"$dt_download_path" install >/dev/null 2>&1
 		if [[ $? -ne 0 ]]; then
-			printf "Error: 'dt' could not be installed\n"
+			printf "Error: 'dt' could not be installed.\n"
 			return 1
 		fi
 	fi
 
-	# PLace defaults in the git config file, this will result in less question presented to the user.
+	# PLace defaults in the git config file,
+	# This could help in reducing user prompts.
 	runner_create_git_config
 
 	"$dt_path" setup
 	local setup_exit_code=$?
 
-	# Cleanup
+	# Delete 'dt' installer once we're done with it.
 	rm -rf "$dt_download_path" 2>/dev/null
 
 	# Make sure auto run is the last line
@@ -227,8 +227,12 @@ runner_ensure_dt() {
 	# Attempt to generate token again
 	token=$("$dt_path" github print-token "$github_url" 2>/dev/null)
 	if [[ -n "$token" ]]; then
-		export PATH="/home/$USER/bin:$PATH" \
-			return 0
+		export PATH="/home/$USER/bin:$PATH"
+
+		# 'dt' probably forced some Proxy server into the .gitconfig.
+		# This will ensure that the proxy used by git is aligned with our environment.
+		runner_create_git_config
+		return 0
 	fi
 
 	# Return the exit code of the setup command if the token still could not be generated
@@ -248,6 +252,7 @@ runner_install_sdk() {
 	local action="$1"
 	local destination_path="$2"
 	local force="${3:-0}" # Default to 0 if not provided
+	local exit_code=0
 
 	# Check mandatory arguments
 	if [[ -z "$action" || -z "$destination_path" ]]; then
@@ -299,25 +304,27 @@ runner_install_sdk() {
 			return 1
 		}
 
-		# Run the curl command to fetch and execute the bootstrap script
+		# Run the curl command to fetch and execute the SDK bootstrap.
 		curl -sSL \
 			-H "Authorization: token $(dt github print-token https://github.com/intel-innersource/firmware.ethernet.imcv2 2>/dev/null)" \
 			-H "Cache-Control: no-store" \
 			"https://raw.githubusercontent.com/intel-innersource/firmware.ethernet.imcv2/main/scripts/imcv2_boot_strap.sh" | bash -s -- -b main
-		local exit_code=$?
+
+		exit_code=$?
 
 		if [[ $exit_code -eq 0 ]]; then
-			# SDK installed. Export the path now so we can immediately patch the missing Simics installation folder.
+
+			# SDK installed. Export the path now so we can immediately patch
+			# the missing Simics installation folder.
 			export IMCV2_INSTALL_PATH="$destination_path"
-
-			exit_code=$?
-
-			# Return the exit code from the Simics installer function.
-			return $exit_code
 		else
 			printf "\n\nThe SDK installation failed with exit code $exit_code.\n"
-			printf "This WSL instance will keep trying, simply close this window and reopen it to try again.\n"
+			printf "Typically, it's a network issue related to Intel's proxy.\n"
+			printf "Your environment proxy settings are: $http_proxy\n\n"
+			printf "This WSL instance will keep on trying.\n"
+			printf "Simply close this window and reopen it to try again.\n"
 		fi
+
 		return "$exit_code"
 		;;
 	*)
@@ -342,6 +349,7 @@ runner_place_simics_installer() {
 	local verbose_mode=0
 	local sdk_tools_dir
 	local sdk_ci_tools_dir
+	local sdk_default_path="/home/$USER/projects/sdk/workspace"
 	local download_path="${HOME}/downloads"
 	local simics_compressed_file="simics_installer.tar.gz"
 	local extract_path="/mnt/ci_tools/intel-simics-package-manager"
@@ -373,21 +381,35 @@ runner_place_simics_installer() {
 	if [[ -n "$IMCV2_INSTALL_PATH" && -d "$IMCV2_INSTALL_PATH" ]]; then
 		# Define sdk_tools_dir
 		sdk_tools_dir="${IMCV2_INSTALL_PATH}/externs/tools"
-		log "Tools directory: $sdk_tools_dir"
+		log "SDK Tools directory: $sdk_tools_dir"
 
-		# Check if sdk_tools_dir exists
+		# Check if the SDK tools path exists
 		if [[ ! -d "$sdk_tools_dir" ]]; then
-			log "Error: Could not find the SDK externs-tools path"
+			log "Error: Could not find the SDK externs-tools path."
 			return 1
 		fi
 	else
-		log "Error: Could not find an SDK instance."
-		return 1
+		log "Warning: SDK variables not exported, trying defaults."
+
+		# SDK variables not exported, try default path
+		if [[ -e "$sdk_default_path" ]]; then
+			# Found something in the default path
+			sdk_tools_dir="${sdk_default_path}/externs/tools"
+			log "SDK Tools directory: $sdk_tools_dir"
+
+			if [[ ! -d "$sdk_tools_dir" ]]; then
+				log "Error: Could not find the SDK externs-tools path in the default path."
+				return 1
+			fi
+		else
+			log "Error: Could not find an SDK instance in the default path."
+			return 1
+		fi
 	fi
 
 	# Go to tools directory
 	cd "$sdk_tools_dir" || {
-		log "Error: Cannot access SDK tools directory"
+		log "Error: Cannot access SDK tools directory."
 		return 1
 	}
 
@@ -398,11 +420,11 @@ runner_place_simics_installer() {
 		log "Error: Failed to switch branch"
 		return 1
 	}
-	log "Switched to branch: 'em_wsl_simics'"
+	log "Switched to branch: 'em_wsl_simics'."
 
 	# Pull latest changes
 	git pull >/dev/null 2>&1 || {
-		log "Error: Failed to pull latest changes"
+		log "Error: Failed to pull latest changes."
 		return 1
 	}
 	log "Pulled latest changes"
@@ -412,44 +434,44 @@ runner_place_simics_installer() {
 		log "Error: Simics installer for WSL path not found (${sdk_ci_tools_dir})"
 		return 1
 	fi
-	log "CI tools directory: $sdk_ci_tools_dir"
+	log "CI tools directory: $sdk_ci_tools_dir."
 
 	# Assemble the parts
 	cat "$sdk_ci_tools_dir"/part* >"$assembled_install_file" 2>/dev/null || {
 		log "Error: Failed to assemble installer"
 		return 1
 	}
-	log "Installer assembled: $assembled_install_file"
+	log "Installer assembled: $assembled_install_file."
 
 	# Extract the assembled install archive file
 	cd "$download_path" || {
-		log "Error: Cannot access download directory"
+		log "Error: Cannot access '$download_path' directory."
 		return 1
 	}
 	tar -xzf "$simics_compressed_file" >/dev/null 2>&1 || {
-		log "Error: Failed to extract installer"
+		log "Error: Failed to decompress installer archive."
 		return 1
 	}
-	log "Installer extracted"
+	log "Installer extracted."
 
 	# Remove and create installation path and move files
 	rm -rf $extract_path >/dev/null 2>&1
 	sudo mkdir -p "$extract_path" || {
-		log "Error: Failed to create installation directory"
+		log "Error: Failed to create '$extract_path' directory."
 		return 1
 	}
 	sudo mv "$simics_folder_name" "$extract_path" >/dev/null 2>&1 || {
-		log "Error: Failed to move $simics_folder_name to $extract_path"
+		log "Error: Failed to move '$simics_folder_name' to '$extract_path'."
 		return 1
 	}
-	log "Files moved to: $extract_path"
+	log "Files ware moved to: '$extract_path'."
 
 	# Step 8: Change ownership of ci_tools
 	sudo chown -R "$USER" /mnt/ci_tools >/dev/null 2>&1 || {
-		log "Error: Failed to change ownership"
+		log "Error: (Root) Failed to change ownership."
 		return 1
 	}
-	log "Ownership changed for: /mnt/ci_tools"
+	log "Ownership changed for: '/mnt/ci_tools'."
 
 	# Quiet cleanup
 	rm -rf "$assembled_install_file" >/dev/null 2>&1
@@ -476,52 +498,70 @@ main() {
 	local ansi_cyan="\033[96m"
 	local ansi_reset="\033[0m"
 	local ansi_yellow="\033[93m"
-	local patch_mode=0 # Flag for patch mode
+
+	# Display usage if -h or --help is provided
+	if [[ $# -eq 1 && ("$1" == "-?" || "$1" == "-h" || "$1" == "--help") ]]; then
+		printf "\nIMCv2 WSL Runner usage:\n\n"
+		printf "  -p, --pin_shell          Insert this script to bashrc and exit.\n"
+		printf "  -s, --get_simics         Install Simics locally and exit.\n"
+		printf "  -k, --set_kerberos       Configure Kerberos and exit.\n"
+		printf "  -g, --git_config         Apply Git configuration and exit.\n"
+		printf "  -i, --install_path PATH  Override default SDK install path.\n"
+		printf "\n"
+		exit 0
+	fi
 
 	# Parse command-line arguments
 	while [[ $# -gt 0 ]]; do
 		case "$1" in
-		-p | --patch)
-			patch_mode=1
+		-p | --pin_shell)
 			shift
+			# Pin auto start script to bashrc and exit.
+			runner_pin_auto_start "$@"
+			exit $?
 			;;
 		-s | --get_simics)
-			# Install Simics locally
 			shift
-			runner_place_simics_installer "$@"
-			exit $?
+			runner_place_simics_installer "$@" || result=$?
+			exit $result
 			;;
 		-k | --set_kerberos)
-			# Attempt to initiate Kerberos client, which is required by Simics
 			shift
-			if runner_configure_kerberos "$@"; then
+			runner_configure_kerberos "$@" || result=$?
+			if [[ $result -eq 0 ]]; then
 				echo "Kerberos setup succeeded."
-				exit 0
 			else
 				echo "Kerberos setup failed."
-				exit 1
 			fi
+			exit $result
 			;;
 		-g | --git_config)
-			# Patch Git configuration using a template
 			shift
-			runner_create_git_config
-			exit $?
+			runner_create_git_config || result=$?
+			exit $result
+			;;
+		-i | --install_path)
+			shift
+			if [[ $# -eq 0 ]]; then
+				echo "Error: Missing value for --install_path."
+				exit 1
+			fi
+			if [[ $# -gt 1 ]]; then
+				echo "Error: Too many values for --install_path."
+				exit 1
+			fi
+			sdk_install_path="$1"
+			shift
 			;;
 		*)
 			echo "Unknown argument: $1"
+			echo "Use $0 --help for usage details."
 			exit 1
 			;;
 		esac
 	done
 
-	# If patch mode is enabled, execute runner_pin_auto_start and return
-	if [[ $patch_mode -eq 1 ]]; then
-		runner_pin_auto_start
-		return 0
-	fi
-
-	# Clear the screen and restore the cursor
+	# Clear the screen
 	clear
 	echo -e "\033[?25h"
 
@@ -529,38 +569,38 @@ main() {
 	printf "\nIMCv2 WSL Auto runner version ${ansi_cyan}${script_version}${ansi_reset}.\n"
 	printf -- "---------------------------------\n\n"
 
-	# Ensure devtools are installed
-	if runner_ensure_dt; then
+	# Install the IMCv2 SDK if needed
+	if [[ -z "${IMCV2_INSTALL_PATH}" || ! -d "${IMCV2_INSTALL_PATH}" ]]; then
 
-		# Pin the auto-start configuration
-		runner_pin_auto_start
+		# First, ensure devtools ('dt') is installed
+		if runner_ensure_dt; then
 
-		# Install the IMCv2 SDK if not installed
-		if [[ -z "${IMCV2_INSTALL_PATH}" || ! -d "${IMCV2_INSTALL_PATH}" ]]; then
+			# Now, install the latest SDK while overwriting residual instance as needed.
+			runner_install_sdk install "$sdk_install_path" 1 || result=$?
 
-			# Restore our preferred git config settings
-			runner_create_git_config
+			if [[ result -eq 0 ]]; then
 
-			# Auto install the SDK if not installed
-			runner_install_sdk install "$sdk_install_path" 1
-			result=$?
+				# Add Simics installer to /mnt/ci_tools: a WSL specific step.
+				runner_place_simics_installer || result=$?
+				if [[ result -eq 0 ]]; then
+					printf "${ansi_yellow}Warning${ansi_reset}: Simics local installer step did not complete.\n"
+				fi
 
-			# Proceed to the next step only if the first one was successful
-			if [[ $result -eq 0 ]]; then
-				# Retrieve the Simics installation into /mnt/ci_tools to align with the Automation setup
-				runner_place_simics_installer
-				result=$?
 			fi
+
+			# Make sure we're last in bashrc
+			runner_pin_auto_start
+
 		else
-			printf "Type '${ansi_yellow}im${ansi_reset}' to star the SDK.\n"
+			echo "Error: Failed to ensure devtools."
+			result=1
 		fi
+	else
+		printf "Type '${ansi_yellow}im${ansi_reset}' to start the SDK.\n"
 	fi
 
-	runner_pin_auto_start
 	printf "\n"
-
-	# Return the captured result
-	return $result
+	exit $result
 }
 
 #
