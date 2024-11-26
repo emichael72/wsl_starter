@@ -7,7 +7,7 @@
 
 ```cmd
 
-curl -s -S --proxy http://proxy-dmz.intel.com:911 https://raw.githubusercontent.com/emichael72/wsl_starter/main/imcv2_image_creator.py | python - -n IMCv2 && timeout 1 && exit
+curl -s -S --proxy http://proxy-dmz.intel.com:911 https://raw.githubusercontent.com/emichael72/wsl_starter/main/imcv2_image_creator.py | python - -n IMCv2 && exit
 
 ```
 
@@ -15,7 +15,7 @@ curl -s -S --proxy http://proxy-dmz.intel.com:911 https://raw.githubusercontent.
 
  ```cmd
 
-curl -s -S https://raw.githubusercontent.com/emichael72/wsl_starter/main/imcv2_image_creator.py | python - -n IMCv2 && timeout 1 && exit
+curl -s -S https://raw.githubusercontent.com/emichael72/wsl_starter/main/imcv2_image_creator.py | python - -n IMCv2 && exit
 
 ```
 
