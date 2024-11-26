@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.6.4
+Version:      1.6.5
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -72,7 +72,7 @@ IMCV2_WSL_DEFAULT_DRIVE_LETTER = "W"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSL Creator"
-IMCV2_SCRIPT_VERSION = "1.6.4"
+IMCV2_SCRIPT_VERSION = "1.6.5"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -237,6 +237,29 @@ def wsl_runner_classify_machine():
         final_score = 4
 
     return score_to_classification[final_score]
+
+
+def wsl_runner_find_notepad_plus_plus():
+    """
+    Attempts to locate Notepad++ on a Windows system.
+
+    Returns:
+        tuple: (install_path, executable_name) on success.
+               (None, None) on failure.
+    """
+    potential_paths = [
+        os.path.join(os.getenv('ProgramFiles', ''), 'Notepad++', 'notepad++.exe'),
+        os.path.join(os.getenv('ProgramFiles(x86)', ''), 'Notepad++', 'notepad++.exe'),
+        os.path.join(os.getenv('LOCALAPPDATA', ''), 'Microsoft', 'WindowsApps', 'notepad++.exe')
+    ]
+
+    for path in potential_paths:
+        if os.path.isfile(path):
+            install_path, executable_name = os.path.split(path)
+            return install_path, executable_name
+
+    # Notepad++ not found
+    return None, None
 
 
 def wsl_runner_which(executable_names: list) -> int:
@@ -517,6 +540,9 @@ def wsl_runner_start_wsl_shell(distribution=None):
     Args:
         distribution (str): The name of the WSL distribution (e.g., "IMCv2").
                             If None, the default WSL profile is used.
+
+    Returns:
+        int: Exit code of the Windows Terminal command or 1 on failure.
     """
     try:
         # Base command for Windows Terminal
@@ -527,13 +553,13 @@ def wsl_runner_start_wsl_shell(distribution=None):
             command.extend(["-p", distribution])  # Add profile name as a string
         else:
             command.append("wsl")  # Launch default WSL distribution
-        subprocess.run(command, check=True)
-    except FileNotFoundError:
-        print("Error: Windows Terminal (`wt`) is not installed or not in the system PATH.")
-    except subprocess.CalledProcessError as e:
-        print(f"Windows Terminal exited with an error: {e}")
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+
+        # Run the command and return its exit code
+        result = subprocess.run(command, check=False)  # Don't raise on error
+        return result.returncode
+
+    except (FileNotFoundError, subprocess.CalledProcessError, Exception):
+        return 1
 
 
 def wsl_runner_spinner_thread():
@@ -1361,14 +1387,21 @@ def run_user_shell_steps(instance_name: str, username: str, proxy_server: str, h
         (
             "Setting environment variables",
             "wsl", ["-d", instance_name, "--", "bash", "-c",
-                    f"""grep -q 'export GDK_BACKEND=x11' /home/{username}/.bashrc || \
-        echo 'export GDK_BACKEND=x11' >> /home/{username}/.bashrc && """
-                    f"""grep -q 'export SWT_GTK3=1' /home/{username}/.bashrc || \
-        echo 'export SWT_GTK3=1' >> /home/{username}/.bashrc && """
-                    f"""grep -q 'export IMCV2_BUILD_MAX_CORES=$(nproc)' /home/{username}/.bashrc || \
-        echo 'export IMCV2_BUILD_MAX_CORES=$(nproc)' >> /home/{username}/.bashrc"""
+                    f"""
+                    grep -q 'export GDK_BACKEND=x11' /home/{username}/.bashrc || \
+                    echo 'export GDK_BACKEND=x11' >> /home/{username}/.bashrc;
+                    grep -q 'export SWT_GTK3=1' /home/{username}/.bashrc || \
+                    echo 'export SWT_GTK3=1' >> /home/{username}/.bashrc;
+                    grep -q 'export IMCV2_BUILD_MAX_CORES=$(nproc)' /home/{username}/.bashrc || \
+                    echo 'export IMCV2_BUILD_MAX_CORES=$(nproc)' >> /home/{username}/.bashrc;
+                    grep -q 'export PATH=\"\\$PATH:/mnt/c/Users/$USER/AppData/Local/Microsoft/WindowsApps\"' 
+                    /home/{username}/.bashrc || \
+                    echo 'export PATH=\"\\$PATH:/mnt/c/Users/$USER/AppData/Local/Microsoft/WindowsApps\"' >> 
+                    /home/{username}/.bashrc
+                    """
                     ]
         ),
+
         # Create necessary directories
         ("Create necessary directories",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
@@ -1568,6 +1601,9 @@ def run_user_creation_steps(instance_name: str, username: str, password: str, hi
     Raises:
         StepError: If any step in the process fails.
     """
+
+    editor_path, editor_binary = wsl_runner_find_notepad_plus_plus()
+
     # Define the steps to create and configure the user
     steps_commands = [
         # Install required basic packages (sudo, passwd)
@@ -1643,6 +1679,21 @@ def run_user_creation_steps(instance_name: str, username: str, password: str, hi
         ("Restarting session for changes to take effect",
          "wsl", ["--terminate", instance_name])
     ]
+
+    # Add notepad++ as an editor to WSL
+    if editor_path:
+        steps_commands.append((
+            "Setting the EDITOR environment variable in .bashrc",
+            "wsl", [
+                "-d", instance_name,
+                "--",
+                "bash", "-c",
+                (
+                    f"echo 'export EDITOR=\"$(wslpath \"{editor_path}\")/{editor_binary}\"' "
+                    f">> /home/{username}/.bashrc"
+                )
+            ]
+        ))
 
     # Execute each command and handle errors
     for description, process, args, *ignore_errors in steps_commands:
@@ -1791,6 +1842,7 @@ def wsl_runner_main() -> int:
     Returns:
         int: Exit code (0 for success, 1 for failure).
     """
+    wsl_runner_find_notepad_plus_plus()
 
     parser = argparse.ArgumentParser(description="IMCV2 WSL Runner")
     parser.add_argument("-n", "--name",
@@ -1896,11 +1948,8 @@ def wsl_runner_main() -> int:
         # Silently attempt to map drive letter
         wsl_runner_map_instance(IMCV2_WSL_DEFAULT_DRIVE_LETTER, instance_name, True)
 
-        print("\nImage creation completed, you may close this window.\n")
-
         # Start WSL instance, setup will continue for there.
-        wsl_runner_start_wsl_shell(instance_name)
-        return 0
+        return wsl_runner_start_wsl_shell(instance_name)
 
     except StepError as step_error:
         # Handle specific step errors
