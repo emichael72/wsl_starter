@@ -9,14 +9,14 @@
 #
 # Script Name:  imcv2_sdk_runner.sh
 # Description:  IMCv2 SDK for WSL auto-start and maintenance.
-# Version:      2.2
+# Version:      2.3
 # Copyright:    2024 Intel Corporation.
 # Author:       Intel IMCv2 Team.
 #
 # ------------------------------------------------------------------------------
 
 # Script global variables
-script_version="2.2"
+script_version="2.3"
 
 #
 # @brief Configures Kerberos by authenticating a user with a given username and password.
@@ -142,7 +142,7 @@ $script_path"
 
 	# Append the content to the end of the file
 	echo -e "\n$expected_content" >>"$bashrc_file"
-	return 1 # Modifications were made
+	return 0 # Done
 }
 
 #

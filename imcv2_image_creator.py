@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.6.7
+Version:      1.6.8
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -73,7 +73,7 @@ IMCV2_WSL_DEFAULT_DRIVE_LETTER = "W"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSL Creator"
-IMCV2_SCRIPT_VERSION = "1.6.7"
+IMCV2_SCRIPT_VERSION = "1.6.8"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -1987,6 +1987,9 @@ def wsl_runner_main() -> int:
         wsl_runner_map_instance(IMCV2_WSL_DEFAULT_DRIVE_LETTER, instance_name, True)
 
         # Start WSL instance, setup will continue for there.
+        print(f"\nTransitioning to '{instance_name}'...\n"
+              f"If the transition fails, please reopen this window using the desktop shortcut.\n")
+
         return wsl_runner_start_wsl_shell(instance_name)
 
     except StepError as step_error:
