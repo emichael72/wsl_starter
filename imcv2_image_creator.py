@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.7.0
+Version:      1.7.1
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -73,7 +73,7 @@ IMCV2_WSL_DEFAULT_DRIVE_LETTER = "W"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSL Creator"
-IMCV2_SCRIPT_VERSION = "1.7.0"
+IMCV2_SCRIPT_VERSION = "1.7.1"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -1978,9 +1978,6 @@ def wsl_runner_main() -> int:
                 print(f"\nStarting step {i}:\n")
 
             step_function()
-            # When running with '-t', break after a single step as the goal is to debug only that specific step.
-            if args.start_step:
-                break
 
         # Silently attempt to map drive letter
         wsl_runner_map_instance(IMCV2_WSL_DEFAULT_DRIVE_LETTER, instance_name, False)
@@ -1992,7 +1989,8 @@ def wsl_runner_main() -> int:
         time.sleep(3)
 
         # Jump to Ubuntu...
-        return wsl_runner_start_wsl_shell(instance_name)
+        wsl_runner_start_wsl_shell(instance_name)
+        return 0
 
     except StepError as step_error:
         # Handle specific step errors
