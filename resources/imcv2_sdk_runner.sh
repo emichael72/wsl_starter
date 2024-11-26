@@ -9,14 +9,14 @@
 #
 # Script Name:  imcv2_sdk_runner.sh
 # Description:  IMCv2 SDK for WSL auto-start and maintenance.
-# Version:      2.4
+# Version:      2.5
 # Copyright:    2024 Intel Corporation.
 # Author:       Intel IMCv2 Team.
 #
 # ------------------------------------------------------------------------------
 
 # Script global variables
-script_version="2.4"
+script_version="2.5"
 
 #
 # @brief Configures Kerberos by authenticating a user with a given username and password.
@@ -583,7 +583,7 @@ main() {
 
 				# Add Simics installer to /mnt/ci_tools: a WSL specific step.
 				runner_place_simics_installer || result=$?
-				if [[ result -eq 0 ]]; then
+				if [[ result -ne 0 ]]; then
 					printf "${ansi_yellow}Warning${ansi_reset}: Simics local installer step did not complete.\n"
 				fi
 
