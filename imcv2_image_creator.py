@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.6.5
+Version:      1.6.6
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -72,7 +72,7 @@ IMCV2_WSL_DEFAULT_DRIVE_LETTER = "W"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSL Creator"
-IMCV2_SCRIPT_VERSION = "1.6.5"
+IMCV2_SCRIPT_VERSION = "1.6.6"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -1602,7 +1602,10 @@ def run_user_creation_steps(instance_name: str, username: str, password: str, hi
         StepError: If any step in the process fails.
     """
 
+    host_editor = None
     editor_path, editor_binary = wsl_runner_find_notepad_plus_plus()
+    if all([editor_path, editor_binary]):
+        host_editor = wsl_runner_win_to_wsl_path(editor_path + "/" + editor_binary)
 
     # Define the steps to create and configure the user
     steps_commands = [
@@ -1681,7 +1684,7 @@ def run_user_creation_steps(instance_name: str, username: str, password: str, hi
     ]
 
     # Add notepad++ as an editor to WSL
-    if editor_path:
+    if host_editor:  # host_editor is '/mnt/c/Program Files/Notepad++/notepad++.exe'
         steps_commands.append((
             "Setting the EDITOR environment variable in .bashrc",
             "wsl", [
@@ -1689,8 +1692,8 @@ def run_user_creation_steps(instance_name: str, username: str, password: str, hi
                 "--",
                 "bash", "-c",
                 (
-                    f"echo 'export EDITOR=\"$(wslpath \"{editor_path}\")/{editor_binary}\"' "
-                    f">> /home/{username}/.bashrc"
+                    f"echo '\n# IMCv2: Using the host Notepad++ editor' >> /home/{username}/.bashrc && "
+                    f"echo 'export EDITOR=\"{host_editor}\"\n' >> /home/{username}/.bashrc"
                 )
             ]
         ))
