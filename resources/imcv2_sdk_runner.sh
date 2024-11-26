@@ -9,14 +9,14 @@
 #
 # Script Name:  imcv2_sdk_runner.sh
 # Description:  IMCv2 SDK for WSL auto-runner and maintenance script.
-# Version:      1.0
+# Version:      1.1
 # Copyright:    2024 Intel Corporation.
 # Author:       Intel IMCv2 Team.
 #
 # ------------------------------------------------------------------------------
 
 # Script global variables
-script_version="1.0"
+script_version="1.1"
 
 #
 # @brief Configures Kerberos by authenticating a user with a given username and password.
@@ -183,8 +183,7 @@ runner_ensure_dt() {
 	printf -- "---------------------\n\n"
 	printf "'dt' is essential for enabling this WSL instance to access ${light_blue}Intel${reset} internal resources.\n"
 	printf " ${bright_white}•${reset} Ensure you have access to ${yellow}https://github.com/intel-innersource${reset}\n"
-	printf " ${bright_white}•${reset} Accept defaults when prompted.\n"
- 	printf " ${bright_white}•${reset} Tip: URLs in the terminal can be opened using Ctrl + Click.\n\n"
+	printf " ${bright_white}•${reset} Accept defaults when prompted.\n\n"
 
 	# Check if 'dt' is installed
 	if [[ ! -f "$dt_path" ]]; then
@@ -615,7 +614,7 @@ main() {
 	echo -e "\033[?25h"
 
 	# Display version information
-	printf "\nIMCv2 WSL Auto-runner version ${ansi_cyan}${script_version}${ansi_reset}.\n"
+	printf "\nIMCv2 WSL Auto-runner version ${ansi_cyan}${script_version}${ansi_reset}\n"
 	printf -- "---------------------------------\n\n"
 
 	# Install the IMCv2 SDK if needed
@@ -634,6 +633,9 @@ main() {
 				if [[ result -ne 0 ]]; then
 					printf "${ansi_yellow}Warning${ansi_reset}: Simics local installer step did not complete.\n"
 				else
+					# Make sure we're last in bashrc
+					runner_pin_auto_start
+
 					printf "Restarting... "
 					sleep 2
 					runner_wsl_reset
@@ -645,7 +647,7 @@ main() {
 			runner_pin_auto_start
 
 		else
-			printf "Error: Failed to ensure 'd' success installation.\n"
+			printf "Error: Failed to ensure 'dt' success installation.\n"
 			result=1
 		fi
 	else
