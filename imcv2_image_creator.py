@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.7.1
+Version:      1.0
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -73,7 +73,7 @@ IMCV2_WSL_DEFAULT_DRIVE_LETTER = "W"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSL Creator"
-IMCV2_SCRIPT_VERSION = "1.7.1"
+IMCV2_SCRIPT_VERSION = "1.0"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -493,7 +493,7 @@ def wsl_runner_show_info(show_logo: bool = False):
         wsl_runner_print_logo()
 
     sys.stdout.write(f"\n{bright_white}IMCv2{reset} SDK WSL v{IMCV2_SCRIPT_VERSION} image creator.\n")
-    sys.stdout.write("-" * 35)
+    sys.stdout.write("-" * 33)
     sys.stdout.write("\n\n")
     sys.stdout.write(f"Here's what's next:\n\n")
     sys.stdout.write(f" {bright_white}•{reset} Download a compatible Ubuntu image (ubuntu-base-24.04.1).\n")
