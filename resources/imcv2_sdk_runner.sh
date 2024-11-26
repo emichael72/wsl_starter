@@ -9,14 +9,14 @@
 #
 # Script Name:  imcv2_sdk_runner.sh
 # Description:  IMCv2 SDK for WSL auto-start and maintenance.
-# Version:      2.3
+# Version:      2.4
 # Copyright:    2024 Intel Corporation.
 # Author:       Intel IMCv2 Team.
 #
 # ------------------------------------------------------------------------------
 
 # Script global variables
-script_version="2.3"
+script_version="2.4"
 
 #
 # @brief Configures Kerberos by authenticating a user with a given username and password.
@@ -182,7 +182,8 @@ runner_ensure_dt() {
 	printf -- "---------------------\n\n"
 	printf "'dt' is essential for enabling this WSL instance to access ${light_blue}Intel${reset} internal resources.\n"
 	printf " ${bright_white}•${reset} Ensure you have access to ${yellow}https://github.com/intel-innersource${reset}\n"
-	printf " ${bright_white}•${reset} Accept defaults when prompted.\n\n"
+	printf " ${bright_white}•${reset} Accept defaults when prompted.\n"
+	printf " ${light_blue}•${reset} Tip: URLs in the terminal can be opened using Ctrl + Click.\n\n"
 
 	# Check if 'dt' is installed
 	if [[ ! -f "$dt_path" ]]; then
