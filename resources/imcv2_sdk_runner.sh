@@ -9,14 +9,14 @@
 #
 # Script Name:  imcv2_sdk_runner.sh
 # Description:  IMCv2 SDK for WSL auto-start and maintenance.
-# Version:      2.0
+# Version:      2.2
 # Copyright:    2024 Intel Corporation.
 # Author:       Intel IMCv2 Team.
 #
 # ------------------------------------------------------------------------------
 
 # Script global variables
-script_version="2.0"
+script_version="2.2"
 
 #
 # @brief Configures Kerberos by authenticating a user with a given username and password.
@@ -122,9 +122,9 @@ runner_create_git_config() {
 
 runner_pin_auto_start() {
 
+	local script_path="${1:-/home/$USER/.imcv2/bin/imcv2_sdk_runner.sh}" # Use if not provided
 	local bashrc_file="$HOME/.bashrc"
 	local marker="# IMCv2 SDK Auto start."
-	local script_path="${BASH_SOURCE[0]}" # Dynamically get the current script path
 
 	# Construct the expected content
 	local expected_content="$marker
@@ -517,8 +517,8 @@ main() {
 		-p | --pin_shell)
 			shift
 			# Pin auto start script to bashrc and exit.
-			runner_pin_auto_start "$@"
-			exit $?
+			runner_pin_auto_start "$@" || result=$?
+			exit $result
 			;;
 		-s | --get_simics)
 			shift

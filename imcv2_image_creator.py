@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.6.6
+Version:      1.6.7
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -48,6 +48,7 @@ import argparse
 import itertools
 import shutil
 import re
+import contextlib
 import platform
 import ctypes
 import subprocess
@@ -72,7 +73,7 @@ IMCV2_WSL_DEFAULT_DRIVE_LETTER = "W"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSL Creator"
-IMCV2_SCRIPT_VERSION = "1.6.6"
+IMCV2_SCRIPT_VERSION = "1.6.7"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -284,6 +285,28 @@ def wsl_runner_which(executable_names: list) -> int:
     except Exception as e:
         print(f"Error while checking executables: {e}")
         return 1
+
+
+def wsl_runner_set_home_drive():
+    """
+    Change the current working directory to the home drive on Windows.
+    Returns:
+        0 if successful,
+        1 if an error occurs (any exception).
+    """
+    # Get the HOMEDRIVE and HOMEPATH environment variables
+    home_drive = os.environ.get("HOMEDRIVE", "")
+    home_path = os.environ.get("HOMEPATH", "")
+
+    # Combine HOMEDRIVE and HOMEPATH to get the full home directory
+    home_dir = f"{home_drive}{home_path}"
+
+    # Suppress all exceptions while attempting to change directory
+    with contextlib.suppress(Exception):
+        os.chdir(home_dir)
+        return 0
+
+    return 1
 
 
 def wsl_runner_get_resource_tuple_by_name(resource_name):
@@ -1383,23 +1406,24 @@ def run_user_shell_steps(instance_name: str, username: str, proxy_server: str, h
             )] if corp_email is not None else []
         ),
 
-        # Those are essential to get UI apps correct
+        # These are essential to get UI apps to work correctly
         (
             "Setting environment variables",
-            "wsl", ["-d", instance_name, "--", "bash", "-c",
-                    f"""
-                    grep -q 'export GDK_BACKEND=x11' /home/{username}/.bashrc || \
-                    echo 'export GDK_BACKEND=x11' >> /home/{username}/.bashrc;
-                    grep -q 'export SWT_GTK3=1' /home/{username}/.bashrc || \
-                    echo 'export SWT_GTK3=1' >> /home/{username}/.bashrc;
-                    grep -q 'export IMCV2_BUILD_MAX_CORES=$(nproc)' /home/{username}/.bashrc || \
-                    echo 'export IMCV2_BUILD_MAX_CORES=$(nproc)' >> /home/{username}/.bashrc;
-                    grep -q 'export PATH=\"\\$PATH:/mnt/c/Users/$USER/AppData/Local/Microsoft/WindowsApps\"' 
-                    /home/{username}/.bashrc || \
-                    echo 'export PATH=\"\\$PATH:/mnt/c/Users/$USER/AppData/Local/Microsoft/WindowsApps\"' >> 
-                    /home/{username}/.bashrc
-                    """
-                    ]
+            "wsl", [
+                "-d", instance_name, "--", "bash", "-c",
+                f"""
+                grep -q 'export GDK_BACKEND=x11' /home/{username}/.bashrc || \
+                echo 'export GDK_BACKEND=x11' >> /home/{username}/.bashrc; \
+                grep -q 'export SWT_GTK3=1' /home/{username}/.bashrc || \
+                echo 'export SWT_GTK3=1' >> /home/{username}/.bashrc; \
+                grep -q 'export IMCV2_BUILD_MAX_CORES=$(nproc)' /home/{username}/.bashrc || \
+                echo 'export IMCV2_BUILD_MAX_CORES=$(nproc)' >> /home/{username}/.bashrc; \
+                grep -q 'export PATH=\"\\$PATH:/mnt/c/Users/$USER/AppData/Local/Microsoft/WindowsApps\"' \
+                /home/{username}/.bashrc || \
+                echo 'export PATH=\"\\$PATH:/mnt/c/Users/$USER/AppData/Local/Microsoft/WindowsApps\"' >> \
+                /home/{username}/.bashrc
+                """
+            ]
         ),
 
         # Create necessary directories
@@ -1550,20 +1574,20 @@ def run_time_zone_steps(instance_name, hidden=True, new_line=False):
         ("Reconfigure tzdata",
          "wsl", ["-d", instance_name, "--", "bash", "-c", "sudo dpkg-reconfigure -f noninteractive tzdata"]),
 
-        # Pre-seed console-setup for Hebrew character set
-        ("Pre-seed console Hebrew character set",
+        # Pre-seed console-setup for Latin character set
+        ("Pre-seed console Latin character set",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  "echo 'console-setup console-setup/charmap47 select UTF-8' | sudo debconf-set-selections"]),
 
-        ("Pre-seed console Hebrew character",
+        ("Pre-seed console Latin character set",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
-                 "echo 'console-setup console-setup/codeset47 select Hebrew' | sudo debconf-set-selections"]),
+                 "echo 'console-setup console-setup/codeset47 select Latin' | sudo debconf-set-selections"]),
 
-        ("Pre-seed console Hebrew character Fixed font",
+        ("Pre-seed console Latin character Fixed font",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  "echo 'console-setup console-setup/fontface47 select Fixed' | sudo debconf-set-selections"]),
 
-        ("Pre-seed console Hebrew character Font size",
+        ("Pre-seed console Latin character Font size",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  "echo 'console-setup console-setup/fontsize-text47 select 16' | sudo debconf-set-selections"]),
 
@@ -1916,6 +1940,9 @@ def wsl_runner_main() -> int:
             wsl_runner_print_status(TextType.BOTH, "Basic system utilities are missing", True, InfoType.ERROR)
             return 1
 
+        # Looks like 'wsl.exe' doesn't like to be executed from non-physical drivers
+        wsl_runner_set_home_drive()
+
         # Define all steps as a list of tuples (step_name, function_call)
         steps = [
             ("Pre-prerequisites",
@@ -1946,7 +1973,15 @@ def wsl_runner_main() -> int:
         wsl_runner_map_instance(IMCV2_WSL_DEFAULT_DRIVE_LETTER)  # Delete Windows mapped drive (if we have it)
 
         for i, (step_name, step_function) in enumerate(steps[args.start_step:], start=args.start_step):
+            # Printing everything for debugging can be useful to track the step number.
+            # Later, we could implement the option -t <number> to execute only that specific step.
+            if not args.hidden:
+                print(f"\nStarting step {i}:\n")
+
             step_function()
+            # When running using '-t' break after single step
+            if args.start_step:
+                break
 
         # Silently attempt to map drive letter
         wsl_runner_map_instance(IMCV2_WSL_DEFAULT_DRIVE_LETTER, instance_name, True)
