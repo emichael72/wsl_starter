@@ -124,7 +124,7 @@ runner_pin_auto_start() {
 
 	local script_path="${1:-/home/$USER/.imcv2/bin/imcv2_sdk_runner.sh}" # Use if not provided
 	local bashrc_file="$HOME/.bashrc"
-	local marker="# IMCv2 SDK Auto start."
+	local marker="# IMCv2 SDK Auto-start."
 
 	# Construct the expected content
 	local expected_content="$marker
