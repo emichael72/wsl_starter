@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.1
+Version:      1.2
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -73,7 +73,7 @@ IMCV2_WSL_DEFAULT_DRIVE_LETTER = "W"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSL Creator"
-IMCV2_SCRIPT_VERSION = "1.1"
+IMCV2_SCRIPT_VERSION = "1.2"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -103,6 +103,7 @@ remote_resources = [
 
 # Spinning characters for progress indication
 spinner_active = False
+spinner_disabled = False
 
 # Intel Proxy availability
 intel_proxy_detected = True
@@ -146,6 +147,23 @@ class TextType(Enum):
     PREFIX = 1
     SUFFIX = 2
     BOTH = 3
+
+
+def wsl_runner_print_log(list_of_lines: list | None):
+    """
+    Prints each line in the given list of lines. Handles None or empty lists gracefully.
+
+    Args:
+        list_of_lines (list | None): A list of strings to print, or None.
+
+    Returns:
+        None
+    """
+    if not list_of_lines:
+        return
+
+    for index, line in enumerate(list_of_lines, start=1):
+        print(f"{line}")
 
 
 def wsl_runner_get_physical_ram():
@@ -248,8 +266,8 @@ def wsl_set_win_term_default() -> int:
         int: 0 if successful, 1 otherwise.
     """
     # Command to set Windows Terminal as the default terminal on Windows 11
-    reg_command = [
-        "reg", "add",
+    reg_args = [
+        "add",
         r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Console",
         "/v", "PreferredConsole",
         "/t", "REG_SZ",
@@ -257,18 +275,12 @@ def wsl_set_win_term_default() -> int:
         "/f"
     ]
 
-    # Run the command silently
-    with suppress(Exception):
-        result = subprocess.run(
-            reg_command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
-        )
-        if result.returncode == 0:
-            return 0  # Success
+    result = wsl_runner_exec_process("reg", reg_args, True, 0)
+    if result is not None:
+        status, ext_status, log_lines = result  # Unpack the tuple
+        return status
 
-    return 1  # Failure
+    return 1
 
 
 def wsl_runner_find_notepad_plus_plus():
@@ -307,15 +319,15 @@ def wsl_runner_which(executable_names: list) -> int:
     try:
         for executable_name in executable_names:
 
-            # Add UTF-16 encoding to the environment variables
-            env = os.environ.copy()
-            env["LANG"] = "en_US.UTF-16"
-
             # Run the 'where' command to check for each executable
-            result = subprocess.run(['where', executable_name], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
-            if result.returncode != 0:
-                # If any executable does not exist, return 1
-                return 1
+            result = wsl_runner_exec_process("where", [executable_name], True, 0)
+            if result is not None:
+                status, ext_status, log_lines = result  # Unpack the tuple
+                if status != 0:
+                    return status
+            else:
+                return 1  # Error while executing command
+
         # All executables exist
         return 0
     except Exception as e:
@@ -325,20 +337,23 @@ def wsl_runner_which(executable_names: list) -> int:
 
 def wsl_runner_is_debug() -> int:
     """
-    Checks if the script is being executed under a known debugger.
+    Checks if the script is being executed under a debugger (Python or native).
 
     Returns:
         int: 0 if running under a debugger, 1 otherwise.
     """
-    with suppress(Exception):
-        # Create a kernel32 instance
-        kernel32 = ctypes.windll.kernel32
+    try:
+        import sys
+        # Check for Python debugger using sys.gettrace()
+        if sys.gettrace() is not None:
+            return 0  # Python debugger detected
 
-        # Check if the current process is being debugged
-        is_debugged = kernel32.IsDebuggerPresent()
-
-        if is_debugged:
-            return 0  # Debugger detected
+        # Check for PyCharm debugger by inspecting loaded modules
+        import sys
+        if "pydevd" in sys.modules:
+            return 0  # PyCharm debugger detected
+    except Exception as e:
+        print(f"Debug detection error: {e}")
 
     return 1  # Not running under a debugger
 
@@ -441,29 +456,21 @@ def wsl_runner_map_instance(drive_letter: str, instance_name: str = None, delete
     """
     if delete:
         # Command to delete the network drive
-        command = ["net", "use", drive_letter + ":", "/del"]
+        args = ["use", drive_letter + ":", "/del"]
     else:
         if not instance_name:
             return 1  # Mandatory argument missing
 
         # Command to map the WSL instance
-        command = ["net", "use", drive_letter + ":", f"\\\\wsl$\\{instance_name}"]
+        args = ["use", drive_letter + ":", f"\\\\wsl$\\{instance_name}"]
 
-    try:
-        # Run the command and capture the output
-        # Add UTF-16 encoding to the environment variables
-        env = os.environ.copy()
-        env["LANG"] = "en_US.UTF-16"
-
-        result = subprocess.run(command, capture_output=True, text=True, env=env)
-        if result.returncode == 0:
-            return 0
-        else:
-            return 1
-    except Exception as e:
-        # Handle unexpected exceptions
-        print(f"Unexpected error: {str(e)}")
-        return 1
+    # Run the command and capture the output
+    result = wsl_runner_exec_process("net", args, True, 0)
+    if result is not None:
+        status, ext_status, log_lines = result  # Unpack the tuple
+        return status
+    else:
+        return 1  # Error while executing command
 
 
 def wsl_runner_is_cmd_in_windows_terminal() -> int:
@@ -480,17 +487,10 @@ def wsl_runner_is_cmd_in_windows_terminal() -> int:
 
     while current_pid:
         # Query the process name using WMIC
-        with suppress(Exception):
-            result = subprocess.run(
-                ['wmic', 'process', 'where', f'ProcessId={current_pid}', 'get', 'name'],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-
-            # Parse and clean the output
-            output_lines = result.stdout.splitlines()
-            clean_lines = [line.strip() for line in output_lines if line.strip()]
+        args = ['process', 'where', f'ProcessId={current_pid}', 'get', 'name']
+        result = wsl_runner_exec_process("wmic", args, True, 0)
+        if result is not None:
+            status, ext_status, clean_lines = result  # Unpack the tuple
 
             # Get the last relevant line (process name)
             if len(clean_lines) > 1:
@@ -505,15 +505,10 @@ def wsl_runner_is_cmd_in_windows_terminal() -> int:
                     return 1
 
             # Get the parent process ID to continue traversing
-            with suppress(Exception):
-                result = subprocess.run(
-                    ['wmic', 'process', 'where', f'ProcessId={current_pid}', 'get', 'ParentProcessId'],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True
-                )
-                ppid_lines = result.stdout.splitlines()
-                ppid_clean = [line.strip() for line in ppid_lines if line.strip()]
+            args = ['process', 'where', f'ProcessId={current_pid}', 'get', 'ParentProcessId']
+            result = wsl_runner_exec_process("wmic", args, True, 0)
+            if result is not None:
+                status, ext_status, ppid_clean = result  # Unpack the tuple
                 if len(ppid_clean) > 1:
                     current_pid = int(ppid_clean[-1])
                 else:
@@ -568,25 +563,7 @@ def wsl_runner_get_office_user_identity():
     return None, None
 
 
-def wsl_runner_print_logo():
-    """
-    Prints the logo with alternating bright white and bright blue colors.
-    """
-
-    blue = "\033[94m"
-    white = "\033[97m"
-    reset = "\033[0m"
-    sys.stdout.write(f"\n{reset}")
-    sys.stdout.write(f"{blue}     ██╗███╗   ███╗ ██████╗██╗   ██╗██████╗{reset}\n")
-    sys.stdout.write(f"{white}     ██║████╗ ████║██╔════╝██║   ██║╚════██╗{reset}\n")
-    sys.stdout.write(f"{blue}     ██║██╔████╔██║██║     ██║   ██║ █████╔╝{reset}\n")
-    sys.stdout.write(f"{white}     ██║██║╚██╔╝██║██║     ╚██╗ ██╔╝██╔═══╝{reset}\n")
-    sys.stdout.write(f"{blue}     ██║██║ ╚═╝ ██║╚██████╗ ╚████╔╝ ███████╗{reset}\n")
-    sys.stdout.write(f"{white}     ╚═╝╚═╝     ╚═╝ ╚═════╝  ╚═══╝  ╚══════╝{reset}\n")
-    sys.stdout.flush()
-
-
-def wsl_runner_show_info(show_logo: bool = False):
+def wsl_runner_show_info():
     """
         Provides detailed information about the steps performed by
         the IMCv2 WSL installer.
@@ -597,9 +574,6 @@ def wsl_runner_show_info(show_logo: bool = False):
 
     sys.stdout.flush()
     os.system("cls")
-
-    if show_logo:
-        wsl_runner_print_logo()
 
     sys.stdout.write(f"\n{bright_white}IMCv2{reset} SDK WSL v{IMCV2_SCRIPT_VERSION} image creator.\n")
     sys.stdout.write("-" * 33)
@@ -625,22 +599,19 @@ def wsl_runner_get_desktop_path() -> str:
     """
     try:
 
-        # Add UTF-16 encoding to the environment variables
-        env = os.environ.copy()
-        env["LANG"] = "en_US.UTF-16"
-
-        # Use PowerShell to fetch the desktop path
-        command = [
-            "powershell",
+        args = [
             "-Command",
             "[Environment]::GetFolderPath('Desktop')"
         ]
-        result = subprocess.run(command, capture_output=True, text=True, check=True, env=env)
 
-        desktop_path = result.stdout.strip()
-        if not os.path.exists(desktop_path):
-            raise FileNotFoundError(f"Desktop path does not exist: {desktop_path}")
-        return desktop_path
+        result = wsl_runner_exec_process("powershell", args, True, 0)
+        if result is not None:
+            status, ext_status, log_lines = result  # Unpack the tuple
+            if status == 0 and len(log_lines) > 0:
+                desktop_path = str(log_lines[0])
+                if os.path.exists(desktop_path):
+                    return desktop_path
+
     except Exception as e:
         raise FileNotFoundError(f"Failed to retrieve desktop path: {e}")
 
@@ -657,22 +628,41 @@ def wsl_runner_is_proxy_available(proxy_server: str, timeout: int = 5) -> bool:
         bool: True if the proxy server is reachable, False otherwise.
     """
     test_url = "https://www.google.com"  # Use a reliable public URL for connectivity testing
+
+    # Determine the null device dynamically
+    null_device = "NUL" if os.name == "nt" else "/dev/null"
+
+    args = [
+        "-s", "-S", "-w", "%{http_code}",  # silent mode, show errors, output HTTP status code
+        "--proxy", proxy_server,  # Use specified proxy server
+        "--output", null_device,  # Discard output dynamically
+        test_url
+    ]
+
+    result = wsl_runner_exec_process("curl", args, True, timeout)
+    if result is not None:
+        status, http_status, log_lines = result  # Unpack the tuple
+        if status is not None and http_status is not None and status == 0 and http_status == 200:
+            return True
+
+    return False
+
+
+def open_admin_command_prompt_in_terminal():
+    """
+    Opens a new Windows Terminal session with administrator privileges.
+    Note:
+        - The user will receive a UAC (User Account Control) prompt to confirm the action.
+        - No additional commands are executed in the terminal; the default profile is used.
+    """
+    elevate_cmd = (
+        r'powershell -Command "& {Start-Process -FilePath wt.exe -Verb RunAs}"'
+    )
+
     try:
-
-        # Add UTF-16 encoding to the environment variables
-        env = os.environ.copy()
-        env["LANG"] = "en_US.UTF-16"
-
-        result = subprocess.run(
-            ["curl", "--proxy", proxy_server, "--silent", "--head", "--fail", test_url],
-            timeout=timeout,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            env=env,
-        )
-        return result.returncode == 0
-    except subprocess.TimeoutExpired:
-        return False
+        subprocess.run(elevate_cmd, shell=True)
+    except Exception as e:
+        print(f"Failed to open terminal as admin: {e}")
 
 
 def wsl_runner_start_wsl_shell(distribution=None):
@@ -710,6 +700,12 @@ def wsl_runner_spinner_thread():
     Display a spinning progress indicator in the terminal.
     """
     global spinner_active
+    global spinner_disabled
+
+    # Exit if the spinner is globally disabled
+    if spinner_disabled:
+        return
+
     bright_blue = "\033[94m"
     reset = "\033[0m"
     spinner_cycle = itertools.cycle(["|", "/", "-", "\\"])
@@ -728,6 +724,12 @@ def wsl_runner_set_spinner(state):
         state (bool): True to start the spinner, False to stop.
     """
     global spinner_active
+    global spinner_disabled
+
+    # Exit if the spinner is globally disabled
+    if spinner_disabled:
+        return
+
     if state:
         spinner_active = True
         progress_thread = threading.Thread(target=wsl_runner_spinner_thread, daemon=True)
@@ -796,73 +798,41 @@ def wsl_runner_download_resources(url, destination_path, proxy_server: str = Non
         ]
 
     # Execute the curl command and capture the output
-    status_code, response_code = wsl_runner_exec_process("curl", args, hidden=True, timeout=timeout)
+    result = wsl_runner_exec_process("curl", args, hidden=True, timeout=timeout)
+    status, http_status, log_lines = result  # Unpack the tuple
 
     # Check if the download was successful
-    if status_code == 0 and str(response_code).strip() == "200":
+    if status is not None and http_status is not None and status == 0 and http_status == 200:
         return 0
 
     # If any check fails, return False
     return 1
 
 
-def wsl_runner_console_decoder(input_string: str) -> str:
+def wsl_runner_console_decoder(input_string: str) -> list[str]:
     """
-    Decodes a console output string as UTF-16, removes non-printable characters,
-    filters out blank lines, and trims right-side whitespace.
+    Decodes a console output string as UTF-8, removes non-printable characters,
+    filters out blank lines, trims right-side whitespace, and always returns a list of cleaned lines.
 
     Args:
         input_string (str): The string to decode and sanitize.
 
     Returns:
-        str: The sanitized and cleaned string.
+        list[str]: A list of cleaned lines. Returns an empty list if no valid lines remain.
     """
     try:
-        # Decode the input string as UTF-16
-        decoded = input_string.encode('latin1').decode('utf-16', errors='replace')
+        # Decode the input string as UTF-8 (from Latin-1 bytes)
+        decoded = input_string.encode('latin1').decode('utf-8', errors='replace')
         # Remove non-printable characters
         decoded = re.sub(r'[^\x20-\x7E\n\r]+', '', decoded)
-        # Split into lines, trim each line, and filter out blank lines
+        # Split into lines, trim each line, and filter out completely empty lines
         cleaned_lines = [line.rstrip() for line in decoded.splitlines() if line.strip()]
-        # Rejoin the cleaned lines
-        return '\n'.join(cleaned_lines)
+
+        # Ensure the result is always a list (empty list if no lines remain)
+        return cleaned_lines
+
     except UnicodeDecodeError:
-        return ""
-
-
-def wsl_runner_console_decoder_ex(input_string: str) -> str:
-    """
-    Decodes a console output string, attempting multiple encoding strategies and removing non-printable characters.
-
-    Args:
-        input_string (str): The string to decode and sanitize.
-
-    Returns:
-        str: The decoded and sanitized string with printable ASCII characters. If decoding fails,
-        returns an empty string.
-    """
-    if not input_string:
-        return ""
-
-    try:
-        # Attempt UTF-8 decoding
-        decoded = input_string.encode('latin1').decode('utf-8', errors='replace')
-        decoded = re.sub(r'[^\x20-\x7E]+', '', decoded)  # Keep printable ASCII characters
-        if decoded:
-            return decoded + "\n"
-
-        # Fallback to UTF-16 LE decoding
-        decoded = input_string.encode('latin1').decode('utf-16-le', errors='replace')
-        decoded = re.sub(r'[^\x20-\x7E]+', '', decoded)
-        if decoded:
-            return decoded + "\n"
-
-    except (UnicodeDecodeError, AttributeError):
-        # Catch decoding errors or invalid input type
-        pass
-
-    # Return an empty string if all decoding attempts fail
-    return ""
+        return []
 
 
 def wsl_runner_exec_process(process: str, args: list, hidden: bool = True, timeout: int = 30) -> tuple:
@@ -879,67 +849,64 @@ def wsl_runner_exec_process(process: str, args: list, hidden: bool = True, timeo
         tuple:
             - int: The exit status code of the process.
             - int: An extended status code (e.g., HTTP status for `curl`, or 0 otherwise).
+            - list: Command log
 
     Raises:
         ValueError: If the process or arguments are invalid.
     """
     cmd = [process] + args
+    log_lines = []
     ext_status = 0
 
-    # Add UTF-16 encoding to the environment variables
-    env = os.environ.copy()
-    env["LANG"] = "en_US.UTF-16"
+    def append_to_log(main_list: list, new_items: list | None):
+        """Appends items to the main list, ensuring no nested lists."""
+        if new_items:
+            main_list.extend(new_items)  # Flatten the list by extending
 
     try:
         with subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True,
-                env=env,
                 bufsize=4096,
-                universal_newlines=True
+                encoding="cp65001",  # Force UTF-8
         ) as proc:
             try:
-                printed_lines = 0
+                # Helper function to process a stream (stdout/stderr)
+                def process_stream(stream, lines, hide):
+                    for line in stream:
+                        decoded_lines = wsl_runner_console_decoder(line)
+                        append_to_log(lines, decoded_lines)  # Correctly append decoded lines
+                        if decoded_lines and not hide:
+                            wsl_runner_print_log(decoded_lines)
 
-                # Process stdout
-                for line in proc.stdout:
-                    if process == "curl" and printed_lines == 0:
-                        try:
-                            ext_status = int(line.strip())  # Extract HTTP status for `curl`
-                        except ValueError:
-                            ext_status = 0  # Handle non-integer first lines gracefully
-                    if not hidden:
-                        print(wsl_runner_console_decoder(line), end="")
-                    printed_lines += 1
+                # Process both stdout and stderr
+                process_stream(proc.stdout, log_lines, hidden)
+                process_stream(proc.stderr, log_lines, hidden)
 
-                # Process stderr
-                for line in proc.stderr:
-                    if not hidden:
-                        print(wsl_runner_console_decoder(line), end="")
+                # Extract HTTP status for `curl`
+                if process == "curl" and log_lines:
+                    try:
+                        ext_status = int(log_lines[0])
+                    except ValueError:
+                        ext_status = 0  # Gracefully handle non-integer values
 
-                # Wait for the process to complete and return codes
-                return proc.wait(timeout=timeout), ext_status
+                # Wait for process completion
+                proc_exit_code = proc.wait(timeout=timeout if timeout else None)
+                return proc_exit_code, ext_status, log_lines
 
             except subprocess.TimeoutExpired:
-                proc.kill()  # Kill the process on timeout
-                return 124, ext_status  # Return timeout-specific exit code
+                proc.kill()
+                return 124, ext_status, log_lines  # Timeout-specific exit code
 
-    except FileNotFoundError as file_error:
-        # Handle missing executable
-        print(f"Error: Command not found: {process} ({file_error})", file=sys.stderr)
-        return 127, 0
-
-    except ValueError as value_error:
-        # Handle invalid arguments
-        print(f"Error: Invalid command arguments: {value_error}", file=sys.stderr)
-        return 1, 0
-
-    except Exception as general_error:
-        # Handle unexpected errors gracefully
-        print(f"Unexpected error while executing '{process}': {general_error}", file=sys.stderr)
-        return 1, 0
+    except (FileNotFoundError, ValueError, Exception) as e:
+        error_message = (
+            f"Error: Command not found: {process}" if isinstance(e, FileNotFoundError)
+            else f"Error: Invalid command arguments: {e}" if isinstance(e, ValueError)
+            else f"Unexpected error while executing '{process}': {e}"
+        )
+        print(error_message, file=sys.stderr)
+        return 1, 0, []
 
 
 def wsl_runner_print_status(
@@ -969,6 +936,7 @@ def wsl_runner_print_status(
     reset = "\033[0m"
 
     max_length = 60
+    global spinner_disabled
 
     if isinstance(ret_val, InfoType):
         ret_val = int(ret_val)
@@ -979,8 +947,12 @@ def wsl_runner_print_status(
         dots_count = max_length - len(description) - 2
         dots = "." * dots_count
         # Print the description with one space before and after the dots
-        sys.stdout.write(f"\r\033[K{description} {dots} ")
-        sys.stdout.flush()
+        if not spinner_disabled:
+            sys.stdout.write(f"\r\033[K{description} {dots} ")
+            sys.stdout.flush()
+        else:
+            # No spinner means we're in a debug session
+            print(f"{description}\n")
 
         # Show spinner
         if text_type is not TextType.BOTH:
@@ -989,24 +961,26 @@ def wsl_runner_print_status(
     # Handle SUFFIX or BOTH types
     if text_type in {TextType.BOTH, TextType.SUFFIX}:
 
-        # Stop spinner
-        wsl_runner_set_spinner(False)
+        # Print the description with one space before and after the dots
+        if not spinner_disabled:
+            # Stop spinner
+            wsl_runner_set_spinner(False)
 
-        if ret_val == InfoType.OK:
-            pass
-        elif ret_val == InfoType.DONE:  # Special code for step completed.
-            sys.stdout.write(f"{green} OK{reset}")
-        elif ret_val == InfoType.WARNING:  # Special code for step completed.
-            sys.stdout.write(f"{yellow} Warning{reset}")
-        else:
-            if ret_val == 124:
-                sys.stdout.write(f"{bright_blue} Timeout{reset}")
+            if ret_val == InfoType.OK:
+                pass
+            elif ret_val == InfoType.DONE:  # Special code for step completed.
+                sys.stdout.write(f"{green} OK{reset}")
+            elif ret_val == InfoType.WARNING:  # Special code for step completed.
+                sys.stdout.write(f"{yellow} Warning{reset}")
             else:
-                ret_val = (ret_val - 2 ** 32) if ret_val >= 2 ** 31 else ret_val
-                sys.stdout.write(f"{red} Error ({ret_val}){reset}")
+                if ret_val == 124:
+                    sys.stdout.write(f"{bright_blue} Timeout{reset}")
+                else:
+                    ret_val = (ret_val - 2 ** 32) if ret_val >= 2 ** 31 else ret_val
+                    sys.stdout.write(f"{red} Error ({ret_val}){reset}")
 
-        sys.stdout.flush()
-        time.sleep(0.3)  # Small delay for visual clarity
+            sys.stdout.flush()
+            time.sleep(0.3)  # Small delay for visual clarity
 
     # Handle newline printing or overwriting the same line
     if new_line:
@@ -1068,6 +1042,24 @@ def wsl_runner_set_console_code_page(val: int) -> int:
     return 1  # Failure
 
 
+def wsl_runner_get_console_code_page() -> tuple[int, int]:
+    """
+    Retrieves the current console code page values for input and output in Windows.
+
+    Returns:
+        tuple[int, int]: A tuple containing the output code page and input code page.
+                         Returns (0, 0) if an error occurs.
+    """
+    with suppress(Exception):
+        # Retrieve the console's current output code page
+        output_code_page = ctypes.windll.kernel32.GetConsoleOutputCP()
+        # Retrieve the console's current input code page
+        input_code_page = ctypes.windll.kernel32.GetConsoleCP()
+        return output_code_page, input_code_page
+
+    return 0, 0  # Failure
+
+
 def wsl_runner_run_process(description: str, process: str, args: list, hidden: bool = True, timeout: int = 30,
                            ignore_errors: bool = False, new_line: bool = False):
     """
@@ -1086,7 +1078,7 @@ def wsl_runner_run_process(description: str, process: str, args: list, hidden: b
     wsl_runner_print_status(TextType.PREFIX, description, new_line)
 
     # Execute the function or process
-    status, ext_status = wsl_runner_exec_process(process, args, hidden, timeout)
+    status, ext_status, log_lines = wsl_runner_exec_process(process, args, hidden, timeout)
 
     # Ignore errors id set to do so
     if ignore_errors:
@@ -1153,22 +1145,19 @@ def wsl_runner_create_shortcut(instance_name: str, instance_path: str, shortcut_
         $Shortcut.Save()
         """
 
-        # Add UTF-16 encoding to the environment variables
-        env = os.environ.copy()
-        env["LANG"] = "en_US.UTF-16"
+        args = [
+            "-Command",
+            shortcut_script
+        ]
 
         # Execute the PowerShell script
-        process = subprocess.run(["powershell", "-Command", shortcut_script],
-                                 capture_output=True, text=True, env=env)
-
-        # Check for success
-        if process.returncode == 0:
-            return 0
-        else:
-            return 1
+        result = wsl_runner_exec_process("powershell", args, True, 0)
+        if result is not None:
+            status, ext_status, log_lines = result  # Unpack the tuple
+            return status
 
     except Exception as e:
-        print(f"An exception occurred: {e}", file=sys.stderr)
+        print(f"An exception occurred: {e}")
         return 1
 
 
@@ -2003,7 +1992,7 @@ def run_pre_prerequisites_local_steps(instance_path: str, bare_linux_image_path:
 def wsl_runner_check_installed(print_version: bool = False, wsl_major_required: int = 2):
     """
     Checks if WSL is installed and whether the required WSL major version is available.
-    
+
     Args:
         print_version (bool): Whether to print the version details.
         wsl_major_required (int): Required major version of WSL.
@@ -2017,51 +2006,44 @@ def wsl_runner_check_installed(print_version: bool = False, wsl_major_required: 
     bright_blue = "\033[94m"
     reset = "\033[0m"
 
-    # Add UTF-16 encoding to the environment variables
-    env = os.environ.copy()
-    env["LANG"] = "en_US.UTF-16"
-
     try:
-        # Run `wsl --version` to check for WSL
-        result = subprocess.run(
-            ["wsl", "--version"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            env=env,
-        )
 
-        if result.returncode == 0:
-            result_text = wsl_runner_console_decoder(result.stdout).strip()
+        args = [
+            "--version"
+        ]
+        result = wsl_runner_exec_process("wsl", args, True, 0)
+        if result is not None:
+            status, ext_status, log_lines = result  # Unpack the tuple
+            if status is not None and log_lines is not None and status == 0:
 
-            if print_version:
-                print(f"Decoded stdout:\n{result_text}")
+                if print_version:
+                    print(f"'wsl --version output:")
+                    wsl_runner_print_log(log_lines)
 
-            # Refined regex for version extraction
-            lines = result_text.splitlines()
-            for line in lines:
-                if line.strip().startswith("WSL version:"):
-                    match = re.search(r"WSL version:\s*(\d+)\.", line, re.IGNORECASE)
-                    if match:
-                        wsl_major_version = int(match.group(1))
-                        if print_version:
-                            print(f"Parsed WSL major version: {wsl_major_version}")
+                # Refined regex for version extraction
+                for line in log_lines:
+                    if line.startswith("WSL version:"):
+                        match = re.search(r"WSL version:\s*(\d+)\.", line, re.IGNORECASE)
+                        if match:
+                            wsl_major_version = int(match.group(1))
+                            if print_version:
+                                print(f"Parsed WSL major version: {wsl_major_version}")
 
-                        if wsl_major_version >= wsl_major_required:
-                            return 0  # WSL version meets the requirement
-                        else:
-                            print(
-                                f"WSL version {wsl_major_version} is below the required version"
-                                f" '{wsl_major_required}'.\n"
-                                f"Command output: {print_version}\n")
+                            if wsl_major_version >= wsl_major_required:
+                                return 0  # WSL version meets the requirement
+                            else:
+                                print(
+                                    f"WSL version {wsl_major_version} is below the required version"
+                                    f" '{wsl_major_required}'.\n"
+                                    f"Command output: {print_version}\n")
 
-                            return 1
+                                return 1
 
-            print(f"Error: Unable to find 'WSL version:' in:\n{print_version}\n")
-            return 1
-        else:
-            print(f"Error: WSL command failed with return code {result.returncode}.")
-            return 1
+                print(f"Error: Unable to find 'WSL version:' in:\n{print_version}\n")
+                return 1
+            else:
+                print(f"Error: WSL command failed with return code {status}.")
+                return 1
 
     except FileNotFoundError:
         print(
@@ -2086,6 +2068,8 @@ def wsl_runner_main() -> int:
     Returns:
         int: Exit code (0 for success, 1 for failure).
     """
+
+    wsl_runner_set_console_code_page(65001)
     print("\nInitializing...")
 
     # Make Windows Terminal as the default terminal
@@ -2131,20 +2115,14 @@ def wsl_runner_main() -> int:
             print("Error: Please start 'Command Prompt' within 'Windows Terminal' and try again.\n")
             return 1
 
-    # WS2 must be installed first, make sure we have it.
-    if wsl_runner_check_installed() != 0:
-        return 1
-
     if not args.name:
         print("Error: Instance name argument (-n) is mandatory.")
         return 1
 
-    # Set the code page to UTF-16
-    wsl_runner_set_console_code_page(1200)
-
     username = os.getlogin()
     instance_name = args.name
     global intel_proxy_detected
+    global spinner_disabled
 
     # Set variables based on default are arguments if provided
     password = args.password if args.password else IMCV2_WSL_DEFAULT_PASSWORD
@@ -2158,8 +2136,6 @@ def wsl_runner_main() -> int:
     bare_linux_image_file = os.path.join(bare_linux_image_path, os.path.basename(urlparse(ubuntu_url).path))
 
     try:
-
-        wsl_runner_show_info()
 
         # This script is designed to work at Intel
         if not wsl_runner_is_proxy_available(proxy_server):
@@ -2182,25 +2158,38 @@ def wsl_runner_main() -> int:
         # Make Windows Terminal as the default terminal
         wsl_set_win_term_default()
 
+        # If we got the debug flags to show everything and be sure to disable hiding and force new line on everything.
+        hidden = bool(args.hidden)  # True if args.hidden is truthy, otherwise False
+        new_line = not hidden  # Opposite of hidden
+        spinner_disabled = not hidden  # If not hidden then no spinner
+
+        # WSL version 2 must be installed first, make sure we have it.
+        if wsl_runner_check_installed((not hidden), 2) != 0:
+            return 1
+
+        # Greetings!
+        wsl_runner_show_info()
+
         # Define all steps as a list of tuples (step_name, function_call)
         steps = [
             ("Pre-prerequisites",
              lambda: run_pre_prerequisites_local_steps(instance_path, bare_linux_image_path, ubuntu_url,
                                                        proxy_server)),
             ("Initial setup", lambda: run_initial_setup_steps(instance_name, instance_path,
-                                                              bare_linux_image_file, args.hidden)),
-            ("User creation", lambda: run_user_creation_steps(instance_name, username, password, args.hidden)),
-            ("User shell setup", lambda: run_user_shell_steps(instance_name, username, proxy_server, args.hidden)),
-            ("Time zone setup", lambda: run_time_zone_steps(instance_name, args.hidden)),
-            ("Kerberos setup", lambda: run_kerberos_steps(instance_name, args.hidden)),
+                                                              bare_linux_image_file, hidden, new_line)),
+            ("User creation", lambda: run_user_creation_steps(instance_name, username, password, hidden, new_line)),
+            ("User shell setup", lambda: run_user_shell_steps(instance_name, username, proxy_server, hidden, new_line)),
+            ("Time zone setup", lambda: run_time_zone_steps(instance_name, hidden, new_line)),
+            ("Kerberos setup", lambda: run_kerberos_steps(instance_name, hidden, new_line)),
             ("Install system packages", lambda: run_install_system_packages(instance_name, username,
-                                                                            proxy_server, args.hidden)),
+                                                                            proxy_server, hidden, new_line)),
             ("Install git configuration", lambda: run_install_git_config(instance_name, username,
-                                                                         proxy_server, args.hidden)),
-            ("Install pyenv", lambda: run_install_pyenv(instance_name, username, proxy_server, args.hidden)),
-            ("Post-install steps", lambda: run_post_install_steps(instance_name, username, proxy_server, args.hidden)),
-            ("Create desktop shortcut", lambda: wsl_runner_create_shortcut(instance_name,
-                                                                           instance_path, "IMCv2 SDK")),
+                                                                         proxy_server, hidden, new_line)),
+            ("Install pyenv", lambda: run_install_pyenv(instance_name, username, proxy_server, hidden, new_line)),
+            ("Post-install steps",
+             lambda: run_post_install_steps(instance_name, username, proxy_server, hidden, new_line)),
+            ("Create desktop shortcut", lambda: wsl_runner_create_shortcut(instance_name, instance_path,
+                                                                           f"{instance_name} SDK")),
         ]
 
         # Execute steps from the specified starting point
@@ -2208,13 +2197,12 @@ def wsl_runner_main() -> int:
             raise ValueError(f"Invalid start step: {args.start_step}. Must be between 0 and {len(steps) - 1}.")
 
         print("\033[?25l")  # Hide the cursor
-        wsl_runner_delete_shortcut("IMCv2 SDK")  # Remove current shortcut (if exist)
-        wsl_runner_map_instance(IMCV2_WSL_DEFAULT_DRIVE_LETTER)  # Delete Windows mapped drive (if we have it)
+        wsl_runner_delete_shortcut(f"{instance_name} SDK")  # Remove current shortcut (if exist)
 
         for i, (step_name, step_function) in enumerate(steps[args.start_step:], start=args.start_step):
             # Printing everything for debugging can be useful to track the step number.
             # Later, we could implement the option -t <number> to execute only that specific step.
-            if not args.hidden:
+            if not hidden:
                 print(f"\nStarting step {i}:\n")
 
             step_function()
