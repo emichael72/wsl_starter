@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.2
+Version:      1.3
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -73,7 +73,7 @@ IMCV2_WSL_DEFAULT_DRIVE_LETTER = "W"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSL Creator"
-IMCV2_SCRIPT_VERSION = "1.2"
+IMCV2_SCRIPT_VERSION = "1.3"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -2107,13 +2107,6 @@ def wsl_runner_main() -> int:
         print("Error: This installer is not intended to be executed with Administrator privileges.\n"
               "Please open a new 'Windows Terminal' as a regular user and try again.")
         return 1
-
-    if wsl_runner_is_debug() == 0:
-        print("Warning: Running under a debugger. Skipping Windows Terminal check.\n")
-    else:
-        if wsl_runner_is_cmd_in_windows_terminal() == 1:
-            print("Error: Please start 'Command Prompt' within 'Windows Terminal' and try again.\n")
-            return 1
 
     if not args.name:
         print("Error: Instance name argument (-n) is mandatory.")
