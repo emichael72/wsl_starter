@@ -9,14 +9,14 @@
 #
 # Script Name:  imcv2_sdk_runner.sh
 # Description:  IMCv2 SDK for WSL auto-runner and maintenance script.
-# Version:      1.0
+# Version:      1.1
 # Copyright:    2024 Intel Corporation.
 # Author:       Intel IMCv2 Team.
 #
 # ------------------------------------------------------------------------------
 
 # Script global variables
-script_version="1.0"
+script_version="1.1"
 
 #
 # @brief Configures Kerberos by authenticating a user with a given username and password.
@@ -649,6 +649,8 @@ main() {
 
 		else
 			printf "Error: Failed to ensure 'dt' success installation.\n"
+			printf "Auto-runner will keep on trying until the SDK is installed.\n"
+			printf "Simply close this window and reopen it to try again.\n"
 			result=1
 		fi
 	else

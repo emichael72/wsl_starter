@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.0
+Version:      1.1
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -48,16 +48,16 @@ import argparse
 import itertools
 import shutil
 import re
-import contextlib
 import platform
 import ctypes
 import subprocess
 import sys
 import time
 import threading
+from contextlib import suppress
 from enum import Enum
-from typing import Optional
 from urllib.parse import urlparse
+from typing import Optional
 
 # Script defaults, some of which could be override using command arguments
 IMCV2_WSL_DEFAULT_BASE_PATH = os.path.join(os.environ["USERPROFILE"], "IMCV2_SDK")
@@ -73,7 +73,7 @@ IMCV2_WSL_DEFAULT_DRIVE_LETTER = "W"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSL Creator"
-IMCV2_SCRIPT_VERSION = "1.0"
+IMCV2_SCRIPT_VERSION = "1.1"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -240,6 +240,37 @@ def wsl_runner_classify_machine():
     return score_to_classification[final_score]
 
 
+def wsl_set_win_term_default() -> int:
+    """
+    Sets the default terminal application to Windows Terminal silently.
+
+    Returns:
+        int: 0 if successful, 1 otherwise.
+    """
+    # Command to set Windows Terminal as the default terminal on Windows 11
+    reg_command = [
+        "reg", "add",
+        r"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Console",
+        "/v", "PreferredConsole",
+        "/t", "REG_SZ",
+        "/d", "{57816a15-a56c-4dcf-9d4d-a3da47927181}",
+        "/f"
+    ]
+
+    # Run the command silently
+    with suppress(Exception):
+        result = subprocess.run(
+            reg_command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        if result.returncode == 0:
+            return 0  # Success
+
+    return 1  # Failure
+
+
 def wsl_runner_find_notepad_plus_plus():
     """
     Attempts to locate Notepad++ on a Windows system.
@@ -275,8 +306,13 @@ def wsl_runner_which(executable_names: list) -> int:
     """
     try:
         for executable_name in executable_names:
+
+            # Add UTF-16 encoding to the environment variables
+            env = os.environ.copy()
+            env["LANG"] = "en_US.UTF-16"
+
             # Run the 'where' command to check for each executable
-            result = subprocess.run(['where', executable_name], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            result = subprocess.run(['where', executable_name], stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
             if result.returncode != 0:
                 # If any executable does not exist, return 1
                 return 1
@@ -285,6 +321,26 @@ def wsl_runner_which(executable_names: list) -> int:
     except Exception as e:
         print(f"Error while checking executables: {e}")
         return 1
+
+
+def wsl_runner_is_debug() -> int:
+    """
+    Checks if the script is being executed under a known debugger.
+
+    Returns:
+        int: 0 if running under a debugger, 1 otherwise.
+    """
+    with suppress(Exception):
+        # Create a kernel32 instance
+        kernel32 = ctypes.windll.kernel32
+
+        # Check if the current process is being debugged
+        is_debugged = kernel32.IsDebuggerPresent()
+
+        if is_debugged:
+            return 0  # Debugger detected
+
+    return 1  # Not running under a debugger
 
 
 def wsl_runner_set_home_drive():
@@ -302,11 +358,26 @@ def wsl_runner_set_home_drive():
     home_dir = f"{home_drive}{home_path}"
 
     # Suppress all exceptions while attempting to change directory
-    with contextlib.suppress(Exception):
+    with suppress(Exception):
         os.chdir(home_dir)
         return 0
 
     return 1
+
+
+def wsl_runner_is_admin() -> int:
+    """
+    Checks if the script is running with administrator privileges on Windows.
+
+    Returns:
+        int: 0 if the user is an administrator, 1 otherwise.
+    """
+    with suppress(Exception):
+        # Obtain the current process token
+        is_admin = ctypes.windll.shell32.IsUserAnAdmin()
+        if is_admin:
+            return 0  # User has administrator privileges
+    return 1  # User is not an administrator or an error occurred
 
 
 def wsl_runner_get_resource_tuple_by_name(resource_name):
@@ -380,7 +451,11 @@ def wsl_runner_map_instance(drive_letter: str, instance_name: str = None, delete
 
     try:
         # Run the command and capture the output
-        result = subprocess.run(command, capture_output=True, text=True)
+        # Add UTF-16 encoding to the environment variables
+        env = os.environ.copy()
+        env["LANG"] = "en_US.UTF-16"
+
+        result = subprocess.run(command, capture_output=True, text=True, env=env)
         if result.returncode == 0:
             return 0
         else:
@@ -391,30 +466,64 @@ def wsl_runner_map_instance(drive_letter: str, instance_name: str = None, delete
         return 1
 
 
-def wsl_runner_is_windows_terminal() -> int:
+def wsl_runner_is_cmd_in_windows_terminal() -> int:
     """
-    Check if the script is being executed in Windows Terminal.
+    Checks if the script is running in Command Prompt inside Windows Terminal.
 
     Returns:
-        int: 0 if running in Windows Terminal, 1 otherwise.
+        int: 0 if running in Command Prompt inside Windows Terminal, 1 otherwise.
     """
-    try:
-        # Get the parent process ID (PPID) of the current process
-        ppid = os.getppid()
 
-        # Run the tasklist command to get the parent process name
-        result = subprocess.run(
-            ['tasklist', '/FI', f'PID eq {ppid}'],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
-        )
+    current_pid = os.getppid()
+    found_cmd = False
+    found_terminal = False
 
-        # Check if WindowsTerminal is in the output
-        return 0 if "WindowsTerminal.exe" in result.stdout else 1
-    except Exception as e:
-        print(f"Error while checking terminal: {e}")
-        return 1
+    while current_pid:
+        # Query the process name using WMIC
+        with suppress(Exception):
+            result = subprocess.run(
+                ['wmic', 'process', 'where', f'ProcessId={current_pid}', 'get', 'name'],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+
+            # Parse and clean the output
+            output_lines = result.stdout.splitlines()
+            clean_lines = [line.strip() for line in output_lines if line.strip()]
+
+            # Get the last relevant line (process name)
+            if len(clean_lines) > 1:
+                process_name = clean_lines[-1]
+                if process_name.lower() == "cmd.exe":
+                    found_cmd = True
+                elif process_name.lower() == "windowsterminal.exe":
+                    found_terminal = True
+                    break  # Stop when WindowsTerminal.exe is found
+                elif process_name.lower() in ["powershell.exe", "pwsh.exe"]:
+                    # If PowerShell is detected, reject
+                    return 1
+
+            # Get the parent process ID to continue traversing
+            with suppress(Exception):
+                result = subprocess.run(
+                    ['wmic', 'process', 'where', f'ProcessId={current_pid}', 'get', 'ParentProcessId'],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+                ppid_lines = result.stdout.splitlines()
+                ppid_clean = [line.strip() for line in ppid_lines if line.strip()]
+                if len(ppid_clean) > 1:
+                    current_pid = int(ppid_clean[-1])
+                else:
+                    break
+
+    # Ensure both cmd.exe and WindowsTerminal.exe were found
+    if found_cmd and found_terminal:
+        return 0
+
+    return 1  # Default to rejection
 
 
 def wsl_runner_get_office_user_identity():
@@ -515,13 +624,18 @@ def wsl_runner_get_desktop_path() -> str:
         FileNotFoundError: If the desktop path cannot be retrieved.
     """
     try:
+
+        # Add UTF-16 encoding to the environment variables
+        env = os.environ.copy()
+        env["LANG"] = "en_US.UTF-16"
+
         # Use PowerShell to fetch the desktop path
         command = [
             "powershell",
             "-Command",
             "[Environment]::GetFolderPath('Desktop')"
         ]
-        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        result = subprocess.run(command, capture_output=True, text=True, check=True, env=env)
 
         desktop_path = result.stdout.strip()
         if not os.path.exists(desktop_path):
@@ -544,11 +658,17 @@ def wsl_runner_is_proxy_available(proxy_server: str, timeout: int = 5) -> bool:
     """
     test_url = "https://www.google.com"  # Use a reliable public URL for connectivity testing
     try:
+
+        # Add UTF-16 encoding to the environment variables
+        env = os.environ.copy()
+        env["LANG"] = "en_US.UTF-16"
+
         result = subprocess.run(
             ["curl", "--proxy", proxy_server, "--silent", "--head", "--fail", test_url],
             timeout=timeout,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            env=env,
         )
         return result.returncode == 0
     except subprocess.TimeoutExpired:
@@ -688,6 +808,30 @@ def wsl_runner_download_resources(url, destination_path, proxy_server: str = Non
 
 def wsl_runner_console_decoder(input_string: str) -> str:
     """
+    Decodes a console output string as UTF-16, removes non-printable characters,
+    filters out blank lines, and trims right-side whitespace.
+
+    Args:
+        input_string (str): The string to decode and sanitize.
+
+    Returns:
+        str: The sanitized and cleaned string.
+    """
+    try:
+        # Decode the input string as UTF-16
+        decoded = input_string.encode('latin1').decode('utf-16', errors='replace')
+        # Remove non-printable characters
+        decoded = re.sub(r'[^\x20-\x7E\n\r]+', '', decoded)
+        # Split into lines, trim each line, and filter out blank lines
+        cleaned_lines = [line.rstrip() for line in decoded.splitlines() if line.strip()]
+        # Rejoin the cleaned lines
+        return '\n'.join(cleaned_lines)
+    except UnicodeDecodeError:
+        return ""
+
+
+def wsl_runner_console_decoder_ex(input_string: str) -> str:
+    """
     Decodes a console output string, attempting multiple encoding strategies and removing non-printable characters.
 
     Args:
@@ -742,12 +886,17 @@ def wsl_runner_exec_process(process: str, args: list, hidden: bool = True, timeo
     cmd = [process] + args
     ext_status = 0
 
+    # Add UTF-16 encoding to the environment variables
+    env = os.environ.copy()
+    env["LANG"] = "en_US.UTF-16"
+
     try:
         with subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
+                env=env,
                 bufsize=4096,
                 universal_newlines=True
         ) as proc:
@@ -899,6 +1048,26 @@ def ws_runner_run_function(description: str, process, args: list,
     return status
 
 
+def wsl_runner_set_console_code_page(val: int) -> int:
+    """
+    Sets the console code page in Windows to the given value.
+    
+    Args:
+        val (int): The desired code page value (e.g., 65001 for UTF-8).
+    
+    Returns:
+        int: 0 on success, 1 on failure.
+    """
+    with suppress(Exception):
+        # Silently change the console's output code page
+        ctypes.windll.kernel32.SetConsoleOutputCP(val)
+        # Silently change the console's input code page
+        ctypes.windll.kernel32.SetConsoleCP(val)
+        return 0  # Success
+
+    return 1  # Failure
+
+
 def wsl_runner_run_process(description: str, process: str, args: list, hidden: bool = True, timeout: int = 30,
                            ignore_errors: bool = False, new_line: bool = False):
     """
@@ -984,9 +1153,13 @@ def wsl_runner_create_shortcut(instance_name: str, instance_path: str, shortcut_
         $Shortcut.Save()
         """
 
+        # Add UTF-16 encoding to the environment variables
+        env = os.environ.copy()
+        env["LANG"] = "en_US.UTF-16"
+
         # Execute the PowerShell script
         process = subprocess.run(["powershell", "-Command", shortcut_script],
-                                 capture_output=True, text=True)
+                                 capture_output=True, text=True, env=env)
 
         # Check for success
         if process.returncode == 0:
@@ -1827,38 +2000,82 @@ def run_pre_prerequisites_local_steps(instance_path: str, bare_linux_image_path:
     wsl_runner_print_status(TextType.BOTH, "Prerequisites satisfied", True, InfoType.DONE)
 
 
-def wsl_runner_check_installed():
+def wsl_runner_check_installed(print_version: bool = False, wsl_major_required: int = 2):
     """
-    Checks if WSL2 is installed on Windows.
-    If not, returns 1 and instructs the user on how to install it.
+    Checks if WSL is installed and whether the required WSL major version is available.
+    
+    Args:
+        print_version (bool): Whether to print the version details.
+        wsl_major_required (int): Required major version of WSL.
+    
+    Returns:
+        int: 0 if the required WSL version is installed, 1 otherwise.
     """
-    wsl_version_unknown = False
+    # ANSI color codes
+    yellow = "\033[33m"
+    red = "\033[31m"
+    bright_blue = "\033[94m"
+    reset = "\033[0m"
+
+    # Add UTF-16 encoding to the environment variables
+    env = os.environ.copy()
+    env["LANG"] = "en_US.UTF-16"
 
     try:
-        # Run `wsl --version` to check for WSL2
-        result = subprocess.run(["wsl", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        # Run `wsl --version` to check for WSL
+        result = subprocess.run(
+            ["wsl", "--version"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env,
+        )
+
         if result.returncode == 0:
-            result_text = wsl_runner_console_decoder(result.stdout)
-            if "Kernel version" in result_text:
-                return 0  # WSL2 is installed
-            else:
-                wsl_version_unknown = True
+            result_text = wsl_runner_console_decoder(result.stdout).strip()
+
+            if print_version:
+                print(f"Decoded stdout:\n{result_text}")
+
+            # Refined regex for version extraction
+            lines = result_text.splitlines()
+            for line in lines:
+                if line.strip().startswith("WSL version:"):
+                    match = re.search(r"WSL version:\s*(\d+)\.", line, re.IGNORECASE)
+                    if match:
+                        wsl_major_version = int(match.group(1))
+                        if print_version:
+                            print(f"Parsed WSL major version: {wsl_major_version}")
+
+                        if wsl_major_version >= wsl_major_required:
+                            return 0  # WSL version meets the requirement
+                        else:
+                            print(
+                                f"WSL version {wsl_major_version} is below the required version"
+                                f" '{wsl_major_required}'.\n"
+                                f"Command output: {print_version}\n")
+
+                            return 1
+
+            print(f"Error: Unable to find 'WSL version:' in:\n{print_version}\n")
+            return 1
+        else:
+            print(f"Error: WSL command failed with return code {result.returncode}.")
+            return 1
 
     except FileNotFoundError:
-        pass
-
-    print("IMCv2 SDK for Windows Subsystem for Linux.\n")
-
-    # Install help message
-    if wsl_version_unknown:
-        print("WSL is installed but might not be WSL2, to reinstall it:")
-    else:
-        print("WSL2 is not installed, to install it:")
-
-    print("1. Open Command Prompt or PowerShell as Administrator.")
-    print("2. Run: wsl --install --no-distribution")
-    print("3. Reboot if prompted, then rerun this installer.\n")
-    return 1
+        print(
+            f"\nWSL is not installed. To install it, please follow these steps:\n\n"
+            f"1. Open 'Command Prompt' or 'Windows Terminal' in {yellow}Administrator{reset} mode:\n"
+            f"   - Right-click the Start button and select 'Command Prompt (Admin)' or 'Windows Terminal (Admin)'.\n\n"
+            f"2. Run the following command to install WSL:\n"
+            f"   {bright_blue}wsl --install{reset}\n\n"
+            f"3. Follow the on-screen instructions to complete the installation.\n\n"
+            f"4. After installation, {yellow}restart{reset} your computer if prompted.\n\n"
+            f"5. Once installed, reopen Windows Terminal, but {red}do not{reset} run it as an "
+            f"Administrator, and try again.\n\n"
+        )
+        return 1
 
 
 def wsl_runner_main() -> int:
@@ -1869,6 +2086,10 @@ def wsl_runner_main() -> int:
     Returns:
         int: Exit code (0 for success, 1 for failure).
     """
+    print("\nInitializing...")
+
+    # Make Windows Terminal as the default terminal
+    wsl_set_win_term_default()
 
     parser = argparse.ArgumentParser(description="IMCV2 WSL Runner")
     parser.add_argument("-n", "--name",
@@ -1897,6 +2118,19 @@ def wsl_runner_main() -> int:
         print(f"{IMCV2_SCRIPT_NAME} v{IMCV2_SCRIPT_VERSION}\n{IMCV2_SCRIPT_DESCRIPTION}.")
         return 0
 
+    # Must not be administrators
+    if wsl_runner_is_admin() == 0:
+        print("Error: This installer is not intended to be executed with Administrator privileges.\n"
+              "Please open a new 'Windows Terminal' as a regular user and try again.")
+        return 1
+
+    if wsl_runner_is_debug() == 0:
+        print("Warning: Running under a debugger. Skipping Windows Terminal check.\n")
+    else:
+        if wsl_runner_is_cmd_in_windows_terminal() == 1:
+            print("Error: Please start 'Command Prompt' within 'Windows Terminal' and try again.\n")
+            return 1
+
     # WS2 must be installed first, make sure we have it.
     if wsl_runner_check_installed() != 0:
         return 1
@@ -1904,6 +2138,9 @@ def wsl_runner_main() -> int:
     if not args.name:
         print("Error: Instance name argument (-n) is mandatory.")
         return 1
+
+    # Set the code page to UTF-16
+    wsl_runner_set_console_code_page(1200)
 
     username = os.getlogin()
     instance_name = args.name
@@ -1941,6 +2178,9 @@ def wsl_runner_main() -> int:
 
         # Looks like 'wsl.exe' doesn't like to be executed from non-physical drivers
         wsl_runner_set_home_drive()
+
+        # Make Windows Terminal as the default terminal
+        wsl_set_win_term_default()
 
         # Define all steps as a list of tuples (step_name, function_call)
         steps = [
