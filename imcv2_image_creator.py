@@ -965,13 +965,7 @@ def wsl_runner_exec_process(process: str, args: list, hidden: bool = True, timeo
                 proc.kill()
                 return 124, ext_status, log_lines  # Timeout-specific exit code
 
-    except (FileNotFoundError, ValueError, Exception) as e:
-        error_message = (
-            f"Error: Command not found: {process}" if isinstance(e, FileNotFoundError)
-            else f"Error: Invalid command arguments: {e}" if isinstance(e, ValueError)
-            else f"Unexpected error while executing '{process}': {e}"
-        )
-        print(error_message, file=sys.stderr)
+    except (FileNotFoundError, ValueError, Exception):
         return 1, 0, []
 
 
