@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.6
+Version:      1.0
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -76,7 +76,7 @@ IMCV2_WSL_DEFAULT_DRIVE_LETTER = "W"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSL Creator"
-IMCV2_SCRIPT_VERSION = "1.6"
+IMCV2_SCRIPT_VERSION = "1.0"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -205,7 +205,6 @@ def wsl_runner_create_config(force_create: bool = False):
         with open(wslconfig_path, "w") as file:
             config.write(file)
 
-        print(f"'{wslconfig_path}' created successfully.")
         return 0  # Success
 
     return 1  # Error occurred
