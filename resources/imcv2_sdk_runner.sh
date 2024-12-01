@@ -9,14 +9,14 @@
 #
 # Script Name:  imcv2_sdk_runner.sh
 # Description:  IMCv2 SDK for WSL auto-runner and maintenance script.
-# Version:      1.1
+# Version:      1.2
 # Copyright:    2024 Intel Corporation.
 # Author:       Intel IMCv2 Team.
 #
 # ------------------------------------------------------------------------------
 
 # Script global variables
-script_version="1.1"
+script_version="1.2"
 
 #
 # @brief Configures Kerberos by authenticating a user with a given username and password.
@@ -217,8 +217,8 @@ runner_ensure_dt() {
 	# This could help in reducing user prompts.
 	runner_create_git_config
 
-	# "$dt_path" setup
-	"$dt_path" setup github-auth --force
+	"$dt_path" setup
+	# "$dt_path" setup github-auth --force
 	local setup_exit_code=$?
 
 	# Delete 'dt' installer once we're done with it.
