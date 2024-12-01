@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.5
+Version:      1.6
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -37,7 +37,6 @@ Dependencies:
 Notes:
 - This script is designed for internal use by the Intel IMCv2 team.
 """
-
 import os
 
 try:
@@ -45,6 +44,7 @@ try:
 except ImportError:
     raise EnvironmentError("This script must be run on Windows.")
 import argparse
+import configparser
 import itertools
 import shutil
 import re
@@ -76,7 +76,7 @@ IMCV2_WSL_DEFAULT_DRIVE_LETTER = "W"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSL Creator"
-IMCV2_SCRIPT_VERSION = "1.5"
+IMCV2_SCRIPT_VERSION = "1.6"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -183,7 +183,7 @@ def wsl_runner_create_config(force_create: bool = False):
     home_dir = os.path.expanduser("~")
     wslconfig_path = os.path.join(home_dir, ".wslconfig")
 
-    with contextlib.suppress(FileExistsError, IOError):
+    with suppress(FileExistsError, IOError):
         # Check if the file exists and handle according to `force_create`
         if os.path.exists(wslconfig_path) and not force_create:
             raise FileExistsError()
