@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.4
+Version:      1.5
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -76,11 +76,10 @@ IMCV2_WSL_DEFAULT_DRIVE_LETTER = "W"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSL Creator"
-IMCV2_SCRIPT_VERSION = "1.4"
+IMCV2_SCRIPT_VERSION = "1.5"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
-
 remote_resources = [
     {
         "name": "Packages list",
@@ -167,6 +166,49 @@ def wsl_runner_print_log(list_of_lines: list | None):
 
     for index, line in enumerate(list_of_lines, start=1):
         print(f"{line}")
+
+
+def wsl_runner_create_config(force_create: bool = False):
+    """
+    Creates or overwrites a `.wslconfig` file in the user's home directory using configparser.
+    Returns 1 on error and 0 on success.
+
+    Args:
+        force_create (bool): If True, overwrite the file if it exists. Default is False.
+
+    Returns:
+        int: 0 on success, 1 on error.
+    """
+    # Define the home directory and file path
+    home_dir = os.path.expanduser("~")
+    wslconfig_path = os.path.join(home_dir, ".wslconfig")
+
+    with contextlib.suppress(FileExistsError, IOError):
+        # Check if the file exists and handle according to `force_create`
+        if os.path.exists(wslconfig_path) and not force_create:
+            raise FileExistsError()
+
+        # Initialize the configuration object
+        config = configparser.ConfigParser()
+
+        # Add the [wsl2] section (empty in this case)
+        config.add_section("wsl2")
+
+        # Add the [experimental] section with the required settings
+        config.add_section("experimental")
+        config.set("experimental", "networkingMode", "mirrored")
+        config.set("experimental", "dnsTunneling", "true")
+        config.set("experimental", "firewall", "true")
+        config.set("experimental", "autoProxy", "true")
+
+        # Write the configuration to the file
+        with open(wslconfig_path, "w") as file:
+            config.write(file)
+
+        print(f"'{wslconfig_path}' created successfully.")
+        return 0  # Success
+
+    return 1  # Error occurred
 
 
 # noinspection PyPep8Naming
@@ -2065,6 +2107,8 @@ def wsl_runner_check_installed(print_version: bool = False, wsl_major_required: 
                                 print(f"Parsed WSL major version: {wsl_major_version}")
 
                             if wsl_major_version >= wsl_major_required:
+                                # Create a default wsl configuration file
+                                wsl_runner_create_config(force_create=True)
                                 return 0  # WSL version meets the requirement
                             else:
                                 print(
