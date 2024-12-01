@@ -54,6 +54,8 @@ import subprocess
 import sys
 import time
 import threading
+import urllib.request
+import urllib.error
 from contextlib import suppress
 from enum import Enum
 from urllib.parse import urlparse
@@ -618,10 +620,10 @@ def wsl_runner_get_desktop_path() -> str:
 
 def wsl_runner_is_proxy_available(proxy_server: str, timeout: int = 5) -> bool:
     """
-    Checks if the specified proxy server is reachable by sending a curl request to a known URL.
+    Checks if the specified proxy server is reachable using urllib.
     
     Args:
-        proxy_server (str): The proxy server to test.
+        proxy_server (str): The proxy server to test in the format 'http://proxyserver:port'.
         timeout (int, optional): Timeout in seconds for the test. Default is 5 seconds.
 
     Returns:
@@ -629,23 +631,18 @@ def wsl_runner_is_proxy_available(proxy_server: str, timeout: int = 5) -> bool:
     """
     test_url = "https://www.google.com"  # Use a reliable public URL for connectivity testing
 
-    # Determine the null device dynamically
-    null_device = "NUL" if os.name == "nt" else "/dev/null"
+    # Configure proxy
+    proxy_handler = urllib.request.ProxyHandler({'http': proxy_server, 'https': proxy_server})
+    opener = urllib.request.build_opener(proxy_handler)
+    urllib.request.install_opener(opener)
 
-    args = [
-        "-s", "-S", "-w", "%{http_code}",  # silent mode, show errors, output HTTP status code
-        "--proxy", proxy_server,  # Use specified proxy server
-        "--output", null_device,  # Discard output dynamically
-        test_url
-    ]
-
-    result = wsl_runner_exec_process("curl", args, True, timeout)
-    if result is not None:
-        status, http_status, log_lines = result  # Unpack the tuple
-        if status is not None and http_status is not None and status == 0 and http_status == 200:
-            return True
-
-    return False
+    try:
+        with urllib.request.urlopen(test_url, timeout=timeout) as response:
+            # If we get a 200 HTTP response, the proxy is working
+            return response.status == 200
+    except (urllib.error.URLError, urllib.error.HTTPError) as e:
+        print(f"Proxy test failed: {e}")
+        return False
 
 
 def open_admin_command_prompt_in_terminal():
