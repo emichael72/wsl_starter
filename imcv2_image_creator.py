@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.3
+Version:      1.4
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -60,6 +60,7 @@ from contextlib import suppress
 from enum import Enum
 from urllib.parse import urlparse
 from typing import Optional
+from ctypes import wintypes
 
 # Script defaults, some of which could be override using command arguments
 IMCV2_WSL_DEFAULT_BASE_PATH = os.path.join(os.environ["USERPROFILE"], "IMCV2_SDK")
@@ -75,7 +76,7 @@ IMCV2_WSL_DEFAULT_DRIVE_LETTER = "W"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSL Creator"
-IMCV2_SCRIPT_VERSION = "1.3"
+IMCV2_SCRIPT_VERSION = "1.4"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -166,6 +167,33 @@ def wsl_runner_print_log(list_of_lines: list | None):
 
     for index, line in enumerate(list_of_lines, start=1):
         print(f"{line}")
+
+
+# noinspection PyPep8Naming
+def wsl_runner_ask_yes_no(message: str, title: str = "Confirm"):
+    """
+        Displays a Yes/No message box using the Windows API.
+
+        Args:
+            title (str): Title of the message box.
+            message (str): Message to display.
+
+        Returns:
+            bool: True if Yes is clicked, False otherwise.
+        """
+    # Constants from the WinAPI
+    MB_YESNO = 0x04
+    MB_ICONQUESTION = 0x20
+    IDYES = 6
+
+    # Load the user32.dll library
+    user32 = ctypes.windll.user32
+    user32.MessageBoxW.restype = wintypes.INT
+    user32.MessageBoxW.argtypes = [wintypes.HWND, wintypes.LPCWSTR, wintypes.LPCWSTR, wintypes.UINT]
+
+    # Display the message box
+    result = user32.MessageBoxW(None, message, title, MB_YESNO | MB_ICONQUESTION)
+    return result == IDYES
 
 
 def wsl_runner_get_physical_ram():
@@ -623,7 +651,7 @@ def wsl_runner_is_proxy_available(proxy_server: str, timeout: int = 5) -> bool:
     Checks if the specified proxy server is reachable using urllib.
     
     Args:
-        proxy_server (str): The proxy server to test in the format 'http://proxyserver:port'.
+        proxy_server (str): The proxy server to test in the format 'https://proxyserver:port'.
         timeout (int, optional): Timeout in seconds for the test. Default is 5 seconds.
 
     Returns:
@@ -1907,10 +1935,20 @@ def run_initial_setup_steps(instance_name: str, instance_path: str, bare_linux_i
     Raises:
         StepError: If any step in the process fails.
     """
+
+    # Execute 'terminate'' as a way to see if that instance already exists
+    result = wsl_runner_exec_process("wsl", ["--terminate", instance_name], True, 0)
+    if result is not None:
+        status, ext_status, log_lines = result  # Unpack the tuple
+        if status == 0:
+            if wsl_runner_ask_yes_no(
+                    f"WSL Instance '{instance_name}' already exists.\n\n"
+                    "Select 'Yes' to overwrite the existing instance or 'No' to exit.",
+                    "IMCv2 WSL Image Creator"
+            ) is False:
+                raise StepError(f"Instance '{instance_name}' already exists.")
+
     steps_commands = [
-        # Terminate the instance if it already exists
-        ("Terminating existing instance (if any)",
-         "wsl", ["--terminate", instance_name], True),
 
         # Unregister the instance if it exists
         ("Unregistering existing instance (if any)",
@@ -2227,4 +2265,3 @@ if __name__ == "__main__":
     return_value = wsl_runner_main()
     print("\033[?25h")  # Restore the cursor
     sys.exit(return_value)
-    
