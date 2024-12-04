@@ -9,14 +9,133 @@
 #
 # Script Name:  imcv2_sdk_runner.sh
 # Description:  IMCv2 SDK for WSL auto-runner and maintenance script.
-# Version:      1.2
+# Version:      1.4
 # Copyright:    2024 Intel Corporation.
 # Author:       Intel IMCv2 Team.
 #
 # ------------------------------------------------------------------------------
 
 # Script global variables
-script_version="1.2"
+script_version="1.4"
+
+#
+# @brief Detects the current Linux distribution and returns its name in lowercase.
+# @return The name of the Linux distribution in lowercase (e.g., "wsl", "fedora", "ubuntu").
+#
+# @example
+# if [[ "$(runner_get_distro)" == "fedora" ]]; then
+#     printf "fedora\n"
+# fi
+#
+
+runner_get_distro() {
+
+	local distro="unknown"
+
+	if grep -qEi "(microsoft|wsl)" /proc/version &>/dev/null; then
+		distro="wsl"
+	elif [[ -f /etc/os-release ]]; then
+		distro=$(grep '^ID=' /etc/os-release | cut -d'=' -f2 | tr -d '"')
+	fi
+
+	echo "$distro"
+	return 0
+}
+
+#
+# @brief Launches a command in the background with fully suppressed output and job notifications.
+#        This function is 'WSL-aware', meaning the arguments will be translated to Windows paths prior to execution
+#        when running under Windows Subsystem for Linux (WSL).
+# @retval 0 Command successfully launched in the background.
+# @retval 1 No command provided (usage error).
+#
+
+runner_launch() {
+
+	# Check if a command is provided
+	if [ -z "$1" ]; then
+		echo "Usage: runner_launch <command> [args...]"
+		return 1
+	fi
+
+	# Extract the command and shift the arguments
+	command="$1"
+	shift
+
+	# Check if running under WSL
+	if [[ "$(runner_get_distro)" == "wsl" ]]; then
+		# Check if W: is accessible
+		if ! powershell.exe -Command "Test-Path W:\\" | grep -q True; then
+			echo "Error: W: drive not found. Ensure it is correctly mapped."
+			return 1
+		fi
+
+		converted_args=()
+		for arg in "$@"; do
+			# Resolve the full path
+			full_path=$(realpath "$arg")
+			if [[ -f "$full_path" || -d "$full_path" ]]; then
+				# Replace \\wsl.localhost\IMCv2\ with W:\
+				win_path=$(wslpath -w "$full_path")
+				win_path="${win_path/\\\\wsl.localhost\\IMCv2\\/W:\\}"
+				converted_args+=("$win_path")
+			else
+				converted_args+=("$arg")
+			fi
+		done
+
+		# Run the command with converted arguments
+		(
+			nohup "$command" "${converted_args[@]}" >/dev/null 2>&1 &
+			echo $! >/tmp/topolbox_launch_pid
+		) &>/dev/null
+	else
+		# Run the command as usual
+		(
+			nohup "$command" "$@" >/dev/null 2>&1 &
+			echo $! >/tmp/topolbox_launch_pid
+		) &>/dev/null
+	fi
+
+}
+
+#
+# @brief Detect the current user's shell.
+# Extracts the current user's shell by reading the /etc/passwd
+# file using the getent command. It returns an appropriate code based on the
+# detected shell.
+# @return 0 if Bash, 1 if Zsh, 2 if unknown or other shell.
+#
+
+runner_getshell() {
+
+	local user_shell
+
+	# Try getting the active shell using the ps method
+	parent_shell=$(ps -p $PPID -o comm= | grep -E 'bash|zsh' || echo "$SHELL")
+	user_shell=$(basename "$parent_shell")
+
+	# If the ps command doesn't return a shell, fall back to getent
+	if [ -z "$user_shell" ]; then
+		user_shell=$(getent passwd "$(whoami)" | cut -d: -f7)
+	fi
+
+	case "$user_shell" in
+	zsh)
+		return 1 # Zsh
+		;;
+	bash)
+		return 0 # Bash
+		;;
+	sh)
+		return 0 # Jenkins runs sh, which is a subset of bash
+		;;
+	*)
+		printf "$Error: Shell ${user_shell} is not supported\n"
+		return 2 # Unknown or other shell
+		;;
+	esac
+}
 
 #
 # @brief Configures Kerberos by authenticating a user with a given username and password.
@@ -107,15 +226,11 @@ runner_create_git_config() {
 }
 
 #
-# @brief Ensures the auto-start configuration for IMCv2 SDK is correctly pinned at the end of the user's .bashrc file.
-#
-# This function appends the necessary lines to .bashrc to ensure the IMCv2 SDK runner script
-# is executed on shell startup. If the lines are already present but not at the end, they
-# are moved to the end of the file.
-#
+# @brief Ensures the auto-start configuration for IMCv2 SDK is correctly pinned at
+#        the end of the user's rc file (bash / zsh)
 # @details
 # - Detects the current script path dynamically.
-# - Ensures no duplicate entries in .bashrc.
+# - Ensures no duplicate entries in the shell 'rc' file.
 # - Appends the auto-start configuration in a clean and predictable way.
 # @return 0 if the desired lines are already correctly positioned, 1 otherwise.
 #
@@ -123,25 +238,37 @@ runner_create_git_config() {
 runner_pin_auto_start() {
 
 	local script_path="${1:-/home/$USER/.imcv2/bin/imcv2_sdk_runner.sh}" # Use if not provided
-	local bashrc_file="$HOME/.bashrc"
 	local marker="# IMCv2 SDK Auto-start."
+
+	# Determine which RC file to use based on the shell
+	runner_getshell
+	shell_type=$?
+
+	if [ "$shell_type" -eq 0 ]; then
+		rc_file="$HOME/.bashrc"
+	elif [ "$shell_type" -eq 1 ]; then
+		rc_file="$HOME/.zshrc"
+	else
+		# Unsupported shell
+		return 1
+	fi
 
 	# Construct the expected content
 	local expected_content="$marker
 $script_path"
 
-	# Check if the last lines of the .bashrc file match the expected content
-	if tail -n 2 "$bashrc_file" | grep -Fxq "$expected_content"; then
+	# Check if the last lines of the shell '.rc' file match the expected content
+	if tail -n 2 "$rc_file" | grep -Fxq "$expected_content"; then
 		return 0 # Already correctly positioned
 	fi
 
 	# If the marker exists elsewhere, remove it
-	if grep -Fxq "$marker" "$bashrc_file"; then
-		sed -i "/^$marker$/,/^\/home\/.*\/imcv2_sdk_runner.sh$/d" "$bashrc_file"
+	if grep -Fxq "$marker" "$rc_file"; then
+		sed -i "/^$marker$/,/^\/home\/.*\/imcv2_sdk_runner.sh$/d" "$rc_file"
 	fi
 
 	# Append the content to the end of the file
-	echo -e "\n$expected_content" >>"$bashrc_file"
+	echo -e "\n$expected_content" >>"$rc_file"
 	return 0 # Done
 }
 
@@ -537,56 +664,73 @@ runner_place_simics_installer() {
 main() {
 
 	local sdk_install_path="/home/$USER/projects/sdk/workspace"
-	local result=0
 	local ansi_cyan="\033[96m"
 	local ansi_reset="\033[0m"
 	local ansi_yellow="\033[93m"
+	local ret_val=0
+
+	# Disable globbing in Zsh to avoid issues with -? and --?
+	setopt noglob 2>/dev/null
 
 	# Display usage if -h or --help is provided
-	if [[ $# -eq 1 && ("$1" == "-?" || "$1" == "-h" || "$1" == "--help") ]]; then
+	if [ "$#" -eq 1 ] && { [ "$1" = "-h" ] || [ "$1" = "-help" ] || [ "$1" = "--h" ] || [ "$1" = "--help" ]; }; then
 		printf "\nIMCv2 Auto-Runner usage:\n\n"
-		printf "  -p, --pin_shell          Insert this script to bashrc and exit.\n"
+		printf "  -p, --pin_shell          Insert this script to the shell startup and exit.\n"
 		printf "  -s, --get_simics         Install Simics locally and exit.\n"
 		printf "  -k, --set_kerberos       Configure Kerberos and exit.\n"
 		printf "  -g, --git_config         Apply Git configuration and exit.\n"
 		printf "  -i, --install_path PATH  Override default SDK install path.\n"
+		printf "  -l, --launch             General purpose WSL specific launcher.\n"
+		printf "  -v, --ver                Prints the 'IMCv2 Runner' script version and exit.\n"
 		printf "  -r, --restart_wsl        Restart the WSL Session.\n"
 		printf "\n"
 		exit 0
 	fi
+	# Re-enable globbing in Zsh if needed later in the script
+	setopt glob 2>/dev/null
 
 	# Parse command-line arguments
 	while [[ $# -gt 0 ]]; do
 		case "$1" in
 		-p | --pin_shell)
 			shift
-			# Pin auto start script to bashrc and exit.
-			runner_pin_auto_start "$@" || result=$?
-			exit $result
+			# Pin auto start script to the shell rc file and exit.
+			runner_pin_auto_start "$@" || ret_val=$?
+			exit $ret_val
 			;;
 		-s | --get_simics)
 			shift
-			runner_place_simics_installer "$@" || result=$?
-			exit $result
+			runner_place_simics_installer "$@" || ret_val=$?
+			exit $ret_val
 			;;
 		-k | --set_kerberos)
 			shift
-			runner_configure_kerberos "$@" || result=$?
-			if [[ $result -eq 0 ]]; then
+			runner_configure_kerberos "$@" || ret_val=$?
+			if [[ $ret_val -eq 0 ]]; then
 				echo "Kerberos setup succeeded."
 			else
 				echo "Kerberos setup failed."
 			fi
-			exit $result
+			exit $ret_val
 			;;
 		-g | --git_config)
 			shift
-			runner_create_git_config || result=$?
-			exit $result
+			runner_create_git_config || ret_val=$?
+			exit $ret_val
 			;;
 		-r | --restart_wsl)
 			shift
 			runner_wsl_reset
+			exit 0
+			;;
+		-l | --launch)
+			shift
+			runner_launch "$@" || ret_val=$?
+			exit $ret_val
+			;;
+		-v| --ver)
+			shift
+			printf "IMCv2 Runner version ${script_version}\n" 
 			exit 0
 			;;
 		-i | --install_path)
@@ -614,7 +758,7 @@ main() {
 	clear
 	echo -e "\033[?25h"
 
-	# Always make sure we're last in bashrc
+	# Make sure we're last in startup shell script
 	runner_pin_auto_start
 
 	# Display version information
@@ -628,16 +772,16 @@ main() {
 		if runner_ensure_dt; then
 
 			# Now, install the latest SDK while overwriting residual instance as needed.
-			runner_install_sdk install "$sdk_install_path" 1 || result=$?
+			runner_install_sdk install "$sdk_install_path" 1 || ret_val=$?
 
-			if [[ result -eq 0 ]]; then
+			if [[ ret_val -eq 0 ]]; then
 
-				# Add Simics installer to /mnt/ci_tools: a WSL specific step.
-				runner_place_simics_installer || result=$?
-				if [[ result -ne 0 ]]; then
-					printf "${ansi_yellow}Warning${ansi_reset}: Simics local installer step did not complete.\n"
+				# Add 'Simics' installer to /mnt/ci_tools: a WSL specific step.
+				runner_place_simics_installer || ret_val=$?
+				if [[ ret_val -ne 0 ]]; then
+					printf "${ansi_yellow}Warning${ansi_reset}: 'Simics' local installer step did not complete.\n"
 				else
-					# Make sure we're last in bashrc
+					# Make sure we're last in startup shell script
 					runner_pin_auto_start
 
 					printf "Restarting... "
@@ -651,14 +795,14 @@ main() {
 			printf "Error: Failed to ensure 'dt' success installation.\n"
 			printf "Auto-runner will keep on trying until the SDK is installed.\n"
 			printf "Simply close this window and reopen it to try again.\n"
-			result=1
+			ret_val=1
 		fi
 	else
 		printf "Type '${ansi_yellow}im${ansi_reset}' to start the SDK.\n"
 	fi
 
 	printf "\n"
-	exit $result
+	exit $ret_val
 }
 
 #
