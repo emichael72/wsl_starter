@@ -9,14 +9,14 @@
 #
 # Script Name:  imcv2_sdk_runner.sh
 # Description:  IMCv2 SDK for WSL auto-runner and maintenance script.
-# Version:      1.4
+# Version:      1.5
 # Copyright:    2024 Intel Corporation.
 # Author:       Intel IMCv2 Team.
 #
 # ------------------------------------------------------------------------------
 
 # Script global variables
-script_version="1.4"
+script_version="1.5"
 
 #
 # @brief Detects the current Linux distribution and returns its name in lowercase.
@@ -73,11 +73,11 @@ runner_launch() {
 		converted_args=()
 		for arg in "$@"; do
 			# Resolve the full path
-			full_path=$(realpath "$arg")
+			full_path=$(realpath "$arg" 2>/dev/null)
 			if [[ -f "$full_path" || -d "$full_path" ]]; then
 				# Replace \\wsl.localhost\IMCv2\ with W:\
 				win_path=$(wslpath -w "$full_path")
-				win_path="${win_path/\\\\wsl.localhost\\IMCv2\\/W:\\}"
+				win_path="${win_path/\\\\wsl.localhost\\IMCv2\\/W:\\}" 
 				converted_args+=("$win_path")
 			else
 				converted_args+=("$arg")
@@ -285,7 +285,7 @@ runner_ensure_dt() {
 	local netrc_path="/home/$USER/.netrc"
 	local github_url="https://github.com/intel-innersource/firmware.ethernet.imcv2"
 	local dt_tool_url="https://gfx-assets.intel.com/artifactory/gfx-build-assets/build-tools/devtool-go/latest/artifacts/linux64/dt"
-	local dt_download_path="$HOME/downloads/dt"
+	local dt_download_path="$HOME/Downloads/dt"
 	local setup_exit_code
 
 	# Define ANSI color codes
@@ -521,7 +521,7 @@ runner_place_simics_installer() {
 	local sdk_tools_dir
 	local sdk_ci_tools_dir
 	local sdk_default_path="/home/$USER/projects/sdk/workspace"
-	local download_path="${HOME}/downloads"
+	local download_path="${HOME}/Downloads"
 	local simics_compressed_file="simics_installer.tar.gz"
 	local extract_path="/mnt/ci_tools/intel-simics-package-manager"
 	local simics_folder_name="intel-simics-package-manager-1.7.0-intel-internal"
@@ -771,8 +771,8 @@ main() {
 		# First, ensure 'dt' is installed
 		if runner_ensure_dt; then
 
-			# Now, install the latest SDK while overwriting residual instance as needed.
-			runner_install_sdk install "$sdk_install_path" 1 || ret_val=$?
+			# Now, install the latest SDK , fail if exist!
+			runner_install_sdk install "$sdk_install_path" 0 || ret_val=$?
 
 			if [[ ret_val -eq 0 ]]; then
 
