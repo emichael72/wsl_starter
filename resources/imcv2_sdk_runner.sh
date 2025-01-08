@@ -77,7 +77,7 @@ runner_launch() {
 			if [[ -f "$full_path" || -d "$full_path" ]]; then
 				# Replace \\wsl.localhost\IMCv2\ with W:\
 				win_path=$(wslpath -w "$full_path")
-				win_path="${win_path/\\\\wsl.localhost\\IMCv2\\/W:\\}" 
+				win_path="${win_path/\\\\wsl.localhost\\IMCv2\\/W:\\}"
 				converted_args+=("$win_path")
 			else
 				converted_args+=("$arg")
@@ -470,8 +470,7 @@ runner_install_sdk() {
 
 		if [[ $exit_code -eq 0 ]]; then
 
-			# SDK installed. Export the path now so we can immediately patch
-			# the missing Simics installation folder.
+			# SDK installed.
 			export IMCV2_INSTALL_PATH="$destination_path"
 		else
 			printf "\n\nSDK installation failed with exit code $exit_code.\n"
@@ -506,152 +505,6 @@ runner_wsl_reset() {
 }
 
 #
-# @brief Currently, WSL does not have access to the /mnt/ci_tools mount, which is available out of
-#        the box on the automatons. Therefore, we need to create it manually. The steps are as follows:
-#        1. Determine where the SDK is installed and verify if it contains the expected extern/tools directory.
-#        2. Temporary step: Switch the Git branch to one that contains the installer split into several tar.gz fragments.
-#        3. [Provide a description for step 3 if applicable].
-#
-# @return 0 if successful, 1 otherwise.
-#
-
-runner_place_simics_installer() {
-
-	local verbose_mode=0
-	local sdk_tools_dir
-	local sdk_ci_tools_dir
-	local sdk_default_path="/home/$USER/projects/sdk/workspace"
-	local download_path="${HOME}/Downloads"
-	local simics_compressed_file="simics_installer.tar.gz"
-	local extract_path="/mnt/ci_tools/intel-simics-package-manager"
-	local simics_folder_name="intel-simics-package-manager-1.7.0-intel-internal"
-	local assembled_install_file="${download_path}/${simics_compressed_file}"
-
-	# Parse arguments
-	while [[ $# -gt 0 ]]; do
-		case "$1" in
-		-v | --verbose)
-			verbose_mode=1
-			shift
-			;;
-		*)
-			echo "Unknown argument: $1"
-			return 1
-			;;
-		esac
-	done
-
-	# Helper function for conditional echo
-	log() {
-		if [[ $verbose_mode -eq 1 ]]; then
-			printf "IMCv2 Simics Installer: %s\n" "$*"
-		fi
-	}
-
-	# Check if we have a default project defined
-	if [[ -n "$IMCV2_INSTALL_PATH" && -d "$IMCV2_INSTALL_PATH" ]]; then
-		# Define sdk_tools_dir
-		sdk_tools_dir="${IMCV2_INSTALL_PATH}/externs/tools"
-		log "SDK Tools directory: $sdk_tools_dir"
-
-		# Check if the SDK tools path exists
-		if [[ ! -d "$sdk_tools_dir" ]]; then
-			log "Error: Could not find the SDK externs-tools path."
-			return 1
-		fi
-	else
-		log "Warning: SDK variables not exported, trying defaults."
-
-		# SDK variables not exported, try default path
-		if [[ -e "$sdk_default_path" ]]; then
-			# Found something in the default path
-			sdk_tools_dir="${sdk_default_path}/externs/tools"
-			log "SDK Tools directory: $sdk_tools_dir"
-
-			if [[ ! -d "$sdk_tools_dir" ]]; then
-				log "Error: Could not find the SDK externs-tools path in the default path."
-				return 1
-			fi
-		else
-			log "Error: Could not find an SDK instance in the default path."
-			return 1
-		fi
-	fi
-
-	# Go to tools directory
-	cd "$sdk_tools_dir" || {
-		log "Error: Cannot access SDK tools directory."
-		return 1
-	}
-
-	sdk_ci_tools_dir="$sdk_tools_dir/CI_Tools/wsl_support"
-
-	# Step 2: Switch to em_wsl_simics branch
-	git checkout em_wsl_simics >/dev/null 2>&1 || {
-		log "Error: Failed to switch branch"
-		return 1
-	}
-	log "Switched to branch: 'em_wsl_simics'."
-
-	# Pull latest changes
-	git pull >/dev/null 2>&1 || {
-		log "Error: Failed to pull latest changes."
-		return 1
-	}
-	log "Pulled latest changes"
-
-	# Check for the required tools directory
-	if [[ ! -d "$sdk_ci_tools_dir" ]]; then
-		log "Error: Simics installer for WSL path not found (${sdk_ci_tools_dir})"
-		return 1
-	fi
-	log "CI tools directory: $sdk_ci_tools_dir."
-
-	# Assemble the parts
-	cat "$sdk_ci_tools_dir"/part* >"$assembled_install_file" 2>/dev/null || {
-		log "Error: Failed to assemble installer"
-		return 1
-	}
-	log "Installer assembled: $assembled_install_file."
-
-	# Extract the assembled install archive file
-	cd "$download_path" || {
-		log "Error: Cannot access '$download_path' directory."
-		return 1
-	}
-	tar -xzf "$simics_compressed_file" >/dev/null 2>&1 || {
-		log "Error: Failed to decompress installer archive."
-		return 1
-	}
-	log "Installer extracted."
-
-	# Remove and create installation path and move files
-	rm -rf $extract_path >/dev/null 2>&1
-	sudo mkdir -p "$extract_path" || {
-		log "Error: Failed to create '$extract_path' directory."
-		return 1
-	}
-	sudo mv "$simics_folder_name" "$extract_path" >/dev/null 2>&1 || {
-		log "Error: Failed to move '$simics_folder_name' to '$extract_path'."
-		return 1
-	}
-	log "Files ware moved to: '$extract_path'."
-
-	# Step 8: Change ownership of ci_tools
-	sudo chown -R "$USER" /mnt/ci_tools >/dev/null 2>&1 || {
-		log "Error: (Root) Failed to change ownership."
-		return 1
-	}
-	log "Ownership changed for: '/mnt/ci_tools'."
-
-	# Quiet cleanup
-	rm -rf "$assembled_install_file" >/dev/null 2>&1
-	rm -rf "$download_path"/simics_folder_name >/dev/null 2>&1
-
-	return 0
-}
-
-#
 # @brief Main entry point for the script.
 # @details
 # - Sets up the IMCv2 environment by creating Git configuration,
@@ -676,7 +529,6 @@ main() {
 	if [ "$#" -eq 1 ] && { [ "$1" = "-h" ] || [ "$1" = "-help" ] || [ "$1" = "--h" ] || [ "$1" = "--help" ]; }; then
 		printf "\nIMCv2 Auto-Runner usage:\n\n"
 		printf "  -p, --pin_shell          Insert this script to the shell startup and exit.\n"
-		printf "  -s, --get_simics         Install Simics locally and exit.\n"
 		printf "  -k, --set_kerberos       Configure Kerberos and exit.\n"
 		printf "  -g, --git_config         Apply Git configuration and exit.\n"
 		printf "  -i, --install_path PATH  Override default SDK install path.\n"
@@ -696,11 +548,6 @@ main() {
 			shift
 			# Pin auto start script to the shell rc file and exit.
 			runner_pin_auto_start "$@" || ret_val=$?
-			exit $ret_val
-			;;
-		-s | --get_simics)
-			shift
-			runner_place_simics_installer "$@" || ret_val=$?
 			exit $ret_val
 			;;
 		-k | --set_kerberos)
@@ -728,9 +575,9 @@ main() {
 			runner_launch "$@" || ret_val=$?
 			exit $ret_val
 			;;
-		-v| --ver)
+		-v | --ver)
 			shift
-			printf "IMCv2 Runner version ${script_version}\n" 
+			printf "IMCv2 Runner version ${script_version}\n"
 			exit 0
 			;;
 		-i | --install_path)
@@ -776,19 +623,12 @@ main() {
 
 			if [[ ret_val -eq 0 ]]; then
 
-				# Add 'Simics' installer to /mnt/ci_tools: a WSL specific step.
-				runner_place_simics_installer || ret_val=$?
-				if [[ ret_val -ne 0 ]]; then
-					printf "${ansi_yellow}Warning${ansi_reset}: 'Simics' local installer step did not complete.\n"
-				else
-					# Make sure we're last in startup shell script
-					runner_pin_auto_start
+				# Make sure we're last in startup shell script
+				runner_pin_auto_start
 
-					printf "Restarting... "
-					sleep 2
-					runner_wsl_reset
-				fi
-
+				printf "Restarting... "
+				sleep 2
+				runner_wsl_reset
 			fi
 
 		else
