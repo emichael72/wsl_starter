@@ -9,14 +9,14 @@
 #
 # Script Name:  imcv2_sdk_runner.sh
 # Description:  IMCv2 SDK for WSL auto-runner and maintenance script.
-# Version:      1.5
+# Version:      1.6
 # Copyright:    2024 Intel Corporation.
 # Author:       Intel IMCv2 Team.
 #
 # ------------------------------------------------------------------------------
 
 # Script global variables
-script_version="1.5"
+script_version="1.6"
 
 #
 # @brief Detects the current Linux distribution and returns its name in lowercase.
@@ -286,6 +286,7 @@ runner_ensure_dt() {
 	local github_url="https://github.com/intel-innersource/firmware.ethernet.imcv2"
 	local dt_tool_url="https://gfx-assets.intel.com/artifactory/gfx-build-assets/build-tools/devtool-go/latest/artifacts/linux64/dt"
 	local dt_download_path="$HOME/Downloads/dt"
+	local dt_optional_path="/home/$USER/.imcv2/bin/dt"
 	local setup_exit_code
 
 	# Define ANSI color codes
@@ -294,6 +295,21 @@ runner_ensure_dt() {
 	local bright_white="\033[1;37m"
 	local reset="\033[0m"
 
+	# Check if the optional 'dt' path exists
+	if [ -f "$dt_optional_path" ]; then
+	
+		echo "dt found in $dt_optional_path"
+		
+		# Ensure the destination directory exists
+		mkdir -p "$(dirname "$dt_path")" 2>/dev/null
+
+		# Copy the dt file to the new location
+		cp -f "$dt_optional_path" "$dt_path" 2>/dev/null
+
+		# Make the dt file executable
+		chmod +x "$dt_path" 2>/dev/null
+	fi
+	
 	# Check for .netrc and attempt to get a token
 	if [[ -f "$netrc_path" ]]; then
 		token=$("$dt_path" github print-token "$github_url" 2>/dev/null)
@@ -532,6 +548,7 @@ main() {
 		printf "  -k, --set_kerberos       Configure Kerberos and exit.\n"
 		printf "  -g, --git_config         Apply Git configuration and exit.\n"
 		printf "  -i, --install_path PATH  Override default SDK install path.\n"
+		printf "  -d, --dt                 Ensure DT is installed.\n"
 		printf "  -l, --launch             General purpose WSL specific launcher.\n"
 		printf "  -v, --ver                Prints the 'IMCv2 Runner' script version and exit.\n"
 		printf "  -r, --restart_wsl        Restart the WSL Session.\n"
@@ -565,6 +582,12 @@ main() {
 			runner_create_git_config || ret_val=$?
 			exit $ret_val
 			;;
+		-d | --dt_config)
+			shift
+			runner_ensure_dt || ret_val=$?
+			exit $ret_val
+			;;
+			
 		-r | --restart_wsl)
 			shift
 			runner_wsl_reset
