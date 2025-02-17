@@ -101,6 +101,10 @@ remote_resources = [
         "name": "Kerberos configuration",
         "file_name": ".krb5.conf",
     },
+    {
+        "name": "DT tool",
+        "file_name": "dt",
+    }
 ]
 
 # Spinning characters for progress indication
@@ -1262,6 +1266,7 @@ def run_post_install_steps(instance_name: str, username, proxy_server, hidden: b
 
     git_template_file_name, git_template_url = wsl_runner_get_resource_tuple_by_name("Git configuration template")
     sdk_runner_file_name, sdk_runner_url = wsl_runner_get_resource_tuple_by_name("SDK Runner script")
+    dt_file_name, dt_url = wsl_runner_get_resource_tuple_by_name("DT tool")
 
     steps_commands = [
         # Set the WSL instance as the default
@@ -1296,10 +1301,29 @@ def run_post_install_steps(instance_name: str, username, proxy_server, hidden: b
                  )
                  ]),
 
+        # Download DT tool
+        ("Downloading DT Tool",
+         "wsl", ["-d", instance_name, "--", "bash", "-c",
+                 (
+                     f"curl -sS --proxy {proxy_server} "
+                     f"-o /home/{username}/.imcv2/bin/{dt_file_name} "
+                     f"{dt_url}"
+                     if intel_proxy_detected else
+                     f"curl -sS "
+                     f"-o /home/{username}/.imcv2/bin/{dt_file_name} "
+                     f"{dt_url}"
+                 )
+                 ]),
+
         # Make the SDK Runner executable
         ("Make the SDK runner script executable",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  f"chmod +x /home/{username}/.imcv2/bin/{sdk_runner_file_name}"]),
+
+        # Make the DT executable
+        ("Make DT tool executable",
+         "wsl", ["-d", instance_name, "--", "bash", "-c",
+                 f"chmod +x /home/{username}/.imcv2/bin/{dt_file_name}"]),
 
         # Use the SDK Runner to patch bashrc
         ("Make 'sdk_runner' run at startup",
