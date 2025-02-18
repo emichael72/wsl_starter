@@ -107,7 +107,7 @@ runner_launch() {
 # @return 0 if Bash, 1 if Zsh, 2 if unknown or other shell.
 #
 
-runner_getshell() {
+runner_get_shell() {
 
 	local user_shell
 
@@ -131,7 +131,7 @@ runner_getshell() {
 		return 0 # Jenkins runs sh, which is a subset of bash
 		;;
 	*)
-		printf "$Error: Shell ${user_shell} is not supported\n"
+		printf "Error: Shell ${user_shell} is not supported\n"
 		return 2 # Unknown or other shell
 		;;
 	esac
@@ -241,7 +241,7 @@ runner_pin_auto_start() {
 	local marker="# IMCv2 SDK Auto-start."
 
 	# Determine which RC file to use based on the shell
-	runner_getshell
+	runner_get_shell
 	shell_type=$?
 
 	if [ "$shell_type" -eq 0 ]; then
@@ -297,9 +297,9 @@ runner_ensure_dt() {
 
 	# Check if the optional 'dt' path exists
 	if [ -f "$dt_optional_path" ]; then
-	
+
 		echo "dt found in $dt_optional_path"
-		
+
 		# Ensure the destination directory exists
 		mkdir -p "$(dirname "$dt_path")" 2>/dev/null
 
@@ -309,7 +309,7 @@ runner_ensure_dt() {
 		# Make the dt file executable
 		chmod +x "$dt_path" 2>/dev/null
 	fi
-	
+
 	# Check for .netrc and attempt to get a token
 	if [[ -f "$netrc_path" ]]; then
 		token=$("$dt_path" github print-token "$github_url" 2>/dev/null)
@@ -587,7 +587,7 @@ main() {
 			runner_ensure_dt || ret_val=$?
 			exit $ret_val
 			;;
-			
+
 		-r | --restart_wsl)
 			shift
 			runner_wsl_reset
