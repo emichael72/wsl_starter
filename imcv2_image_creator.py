@@ -3,7 +3,7 @@
 """
 Script:       imcv2_image_creator.py
 Author:       Intel IMCv2 Team
-Version:      1.0
+Version:      1.1
 
 Description:
 Automates the creation and configuration of a Windows Subsystem for Linux (WSL) instance,
@@ -76,7 +76,7 @@ IMCV2_WSL_DEFAULT_DRIVE_LETTER = "W"
 
 # Script version
 IMCV2_SCRIPT_NAME = "WSL Creator"
-IMCV2_SCRIPT_VERSION = "1.0"
+IMCV2_SCRIPT_VERSION = "1.1"
 IMCV2_SCRIPT_DESCRIPTION = "WSL Image Creator"
 
 # List of remote downloadable resources
@@ -155,7 +155,7 @@ class TextType(Enum):
     BOTH = 3
 
 
-def wsl_runner_print_log(list_of_lines: list | None):
+def wsl_runner_print_log(list_of_lines: Optional[list]) -> Optional[str]:
     """
     Prints each line in the given list of lines. Handles None or empty lists gracefully.
 
@@ -166,7 +166,7 @@ def wsl_runner_print_log(list_of_lines: list | None):
         None
     """
     if not list_of_lines:
-        return
+        return None
 
     for index, line in enumerate(list_of_lines, start=1):
         print(f"{line}")
@@ -210,7 +210,6 @@ def wsl_runner_create_config(force_create: bool = False):
             config.write(file)
 
         return 0  # Success
-
     return 1  # Error occurred
 
 
@@ -263,7 +262,7 @@ def wsl_runner_get_cpu_cores():
 
 def wsl_runner_classify_machine():
     """
-       Classifies the host machine into one of 5 categories.
+       Classifies the host machine into one of five categories.
     """
 
     # Dictionary to translate scores into classification strings
@@ -308,7 +307,7 @@ def wsl_runner_classify_machine():
     else:
         core_score = 4
 
-    # Bonus for processor type
+    # Bonus for a processor type
     bonus = 0
     if "i7" in cpu_type or "i9" in cpu_type:
         bonus += 1  # Bonus for higher-end processors
@@ -463,7 +462,7 @@ def wsl_runner_is_admin() -> int:
         int: 0 if the user is an administrator, 1 otherwise.
     """
     with suppress(Exception):
-        # Obtain the current process token
+        # Get the current process token
         is_admin = ctypes.windll.shell32.IsUserAnAdmin()
         if is_admin:
             return 0  # User has administrator privileges
@@ -662,7 +661,7 @@ def wsl_runner_show_info():
     sys.stdout.flush()
 
 
-def wsl_runner_get_desktop_path() -> str:
+def wsl_runner_get_desktop_path() -> Optional[str]:
     """
     Retrieves the desktop path for the current user dynamically using PowerShell.
 
@@ -694,7 +693,7 @@ def wsl_runner_get_desktop_path() -> str:
 def wsl_runner_is_proxy_available(proxy_server: str, timeout: int = 5) -> bool:
     """
     Checks if the specified proxy server is reachable using urllib.
-    
+
     Args:
         proxy_server (str): The proxy server to test in the format 'https://proxyserver:port'.
         timeout (int, optional): Timeout in seconds for the test. Default is 5 seconds.
@@ -711,7 +710,7 @@ def wsl_runner_is_proxy_available(proxy_server: str, timeout: int = 5) -> bool:
 
     try:
         with urllib.request.urlopen(test_url, timeout=timeout) as response:
-            # If we get a 200 HTTP response, the proxy is working
+            # If we get a 200-HTTP response, the proxy is working
             return response.status == 200
     except (urllib.error.URLError, urllib.error.HTTPError) as e:
         print(f"Proxy test failed: {e}")
@@ -758,7 +757,7 @@ def wsl_runner_start_wsl_shell(distribution=None):
             command.append("wsl")  # Launch default WSL distribution
 
         # Run the command and return its exit code
-        result = subprocess.run(command, check=False)  # Don't raise on error
+        result = subprocess.run(command, check=False)  # Don't rise on error
         return result.returncode
 
     except (FileNotFoundError, subprocess.CalledProcessError, Exception):
@@ -928,7 +927,7 @@ def wsl_runner_exec_process(process: str, args: list, hidden: bool = True, timeo
     log_lines = []
     ext_status = 0
 
-    def append_to_log(main_list: list, new_items: list | None):
+    def append_to_log(main_list: list, new_items: Optional[list]):
         """Appends items to the main list, ensuring no nested lists."""
         if new_items:
             main_list.extend(new_items)  # Flatten the list by extending
@@ -1069,7 +1068,7 @@ def ws_runner_run_function(description: str, process, args: list,
     wsl_runner_print_status(TextType.PREFIX, description, new_line)
 
     try:
-        if callable(process):  # Check if process is a callable Python function
+        if callable(process):  # Check if a process is a callable Python function
             status = process(*args)  # Call the Python function with arguments
         else:
             raise ValueError(f"Invalid process type: {type(process)}. Must be callable or a string.")
@@ -1089,10 +1088,10 @@ def ws_runner_run_function(description: str, process, args: list,
 def wsl_runner_set_console_code_page(val: int) -> int:
     """
     Sets the console code page in Windows to the given value.
-    
+
     Args:
         val (int): The desired code page value (e.g., 65001 for UTF-8).
-    
+
     Returns:
         int: 0 on success, 1 on failure.
     """
@@ -1148,7 +1147,7 @@ def wsl_runner_run_process(description: str, process: str, args: list, hidden: b
     if ignore_errors:
         status = 0
 
-    # When the command is 'curl' the extended status is the HTTP code
+    # When the command is 'curl,' the extended status is the HTTP code
     if process == "curl" and ext_status != 200:
         status = ext_status
 
@@ -1173,7 +1172,7 @@ def wsl_runner_win_to_wsl_path(windows_path):
     return wsl_path
 
 
-def wsl_runner_create_shortcut(instance_name: str, instance_path: str, shortcut_name: str) -> int:
+def wsl_runner_create_shortcut(instance_name: str, instance_path: str, shortcut_name: str) -> Optional[int]:
     """
     Creates or replaces a desktop shortcut to launch a WSL instance.
 
@@ -1199,7 +1198,7 @@ def wsl_runner_create_shortcut(instance_name: str, instance_path: str, shortcut_
         target = "C:\\Windows\\System32\\wsl.exe"  # Path to wsl.exe
         arguments = f"-d {instance_name}"  # Arguments for the WSL instance
 
-        # Create the shortcut using Windows' built-in 'powershell'
+        # Create the shortcut using Windows' built-in 'PowerShell'
         shortcut_script = f"""
         $WScriptShell = New-Object -ComObject WScript.Shell
         $Shortcut = $WScriptShell.CreateShortcut('{shortcut_path}')
@@ -1287,7 +1286,7 @@ def run_post_install_steps(instance_name: str, username, proxy_server, hidden: b
                  )
                  ]),
 
-        # Download SDK runner script
+        # Download an SDK runner script
         ("Downloading SDK runner script",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  (
@@ -1349,7 +1348,7 @@ def run_post_install_steps(instance_name: str, username, proxy_server, hidden: b
 
 def run_install_pyenv(instance_name, username, proxy_server, hidden=True, new_line=False):
     """
-    Use 'pyenv' to install specific Python 3.9 and set it ass default Python runtime.
+    Use 'pyenv' to install specific Python 3.9 and set it as default Python runtime.
 
     Args:
         instance_name (str): The name of the WSL instance.
@@ -1402,7 +1401,7 @@ def run_install_pyenv(instance_name, username, proxy_server, hidden=True, new_li
         ("Restarting session for changes to take effect",
          "wsl", ["--terminate", instance_name]),
 
-        # Add Pyenv setup to .bashrc using cat <<EOF
+        # Add Pyenv setup to .bashrc using 'cat <<EOF'
         ("Add Pyenv setup to .bashrc",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  f"cat <<'EOF' >> /home/{username}/.bashrc\n"
@@ -1438,7 +1437,7 @@ def run_install_pyenv(instance_name, username, proxy_server, hidden=True, new_li
          "wsl", ["--terminate", instance_name]),
     ]
 
-    # Execute each command in the steps commands list
+    # Execute each command in the step commands list
     for description, process, args, *ignore_errors in steps_commands:
         # If ignore_errors is not specified, default it to False
         ignore_errors = ignore_errors[0] if ignore_errors else False
@@ -1505,7 +1504,7 @@ def run_install_git_config(instance_name, username, proxy_server, hidden=True, n
 
     ]
 
-    # Execute each command in the steps commands list
+    # Execute each command in the step commands list
     for description, process, args, *ignore_errors in steps_commands:
         # If ignore_errors is not specified, default it to False
         ignore_errors = ignore_errors[0] if ignore_errors else False
@@ -1519,7 +1518,7 @@ def run_install_git_config(instance_name, username, proxy_server, hidden=True, n
 def run_install_system_packages(instance_name, username, proxy_server, hidden=True, new_line=False,
                                 timeout=120):
     """
-    Transfers a packages file to the WSL instance and installs the packages listed in the file.
+    Transfers a package file to the WSL instance and installs the packages listed in the file.
 
     Args:
         instance_name (str): The name of the WSL instance.
@@ -1557,14 +1556,14 @@ def run_install_system_packages(instance_name, username, proxy_server, hidden=Tr
         ("Restarting session for changes to take effect",
          "wsl", ["--terminate", instance_name]),
 
-        # Installing packages from file (ignore errors on first attempt)
+        # Installing packages from a file (ignore errors on the first attempt)
         (f"Installing (a lot of) packages",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  f"xargs -a /home/{username}/downloads/{packages_file_name} -r sudo apt install -y "
                  f"--ignore-missing"],
          True),
 
-        # Installing packages from file (retry without ignoring errors)
+        # Installing packages from a file (retry without ignoring errors)
         ("Installing packages from file second round",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  f"xargs -a /home/{username}/downloads/{packages_file_name} -r sudo apt install -y "
@@ -1583,7 +1582,7 @@ def run_install_system_packages(instance_name, username, proxy_server, hidden=Tr
          "wsl", ["--terminate", instance_name]),
     ]
 
-    # Execute each command in the steps commands list
+    # Execute each command in the step commands list
     for description, process, args, *ignore_errors in steps_commands:
         # If ignore_errors is not specified, default it to False
         ignore_errors = ignore_errors[0] if ignore_errors else False
@@ -1672,7 +1671,7 @@ def run_user_shell_steps(instance_name: str, username: str, proxy_server: str, h
             ]
         ),
 
-        # Create necessary directories
+        # Create the necessary directories
         ("Create necessary directories",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  f"mkdir -p /home/{username}/downloads /home/{username}/projects /home/{username}/.imcv2/bin && "
@@ -1693,7 +1692,7 @@ def run_user_shell_steps(instance_name: str, username: str, proxy_server: str, h
                  )
                  ]),
 
-        # Copy Kerberos file to /etc/krb5.conf using sudo
+        # Copy a Kerberos file to /etc/krb5.conf using sudo
         (
             "Copy Kerberos configuration file",
             "wsl",
@@ -1770,7 +1769,7 @@ def run_kerberos_steps(instance_name: str, hidden: bool = True, new_line: bool =
          "wsl", ["--terminate", instance_name])
     ]
 
-    # Execute each command in the steps list
+    # Execute each command in the step list
     for description, process, args, *ignore_errors in steps_commands:
         ignore_errors = ignore_errors[0] if ignore_errors else False
         if wsl_runner_run_process(description, process, args, hidden=hidden, new_line=new_line,
@@ -1784,7 +1783,7 @@ def run_time_zone_steps(instance_name, hidden=True, new_line=False):
 
     This function automates a series of steps to:
     1. Pre-seed timezone data (tzdata) for the Israel timezone in the WSL instance.
-    2. Set the system timezone to Asia/Jerusalem.
+    2. Set the system time zone to Asia/Jerusalem.
     3. Ensure the tzdata package is installed.
     4. Reconfigure tzdata non-interactively.
     5. Configure the console to use Hebrew character sets and fonts.
@@ -1820,7 +1819,7 @@ def run_time_zone_steps(instance_name, hidden=True, new_line=False):
         ("Reconfigure tzdata",
          "wsl", ["-d", instance_name, "--", "bash", "-c", "sudo dpkg-reconfigure -f noninteractive tzdata"]),
 
-        # Pre-seed console-setup for Latin character set
+        # Pre-seed console-setup for a Latin character set
         ("Pre-seed console Latin character set",
          "wsl", ["-d", instance_name, "--", "bash", "-c",
                  "echo 'console-setup console-setup/charmap47 select UTF-8' | sudo debconf-set-selections"]),
@@ -1847,7 +1846,7 @@ def run_time_zone_steps(instance_name, hidden=True, new_line=False):
          "wsl", ["--terminate", instance_name])
     ]
 
-    # Execute each command in the steps commands list
+    # Execute each command in the step commands list
     for description, process, args, *ignore_errors in steps_commands:
         # If ignore_errors is not specified, default it to False
         ignore_errors = ignore_errors[0] if ignore_errors else False
@@ -1995,7 +1994,7 @@ def run_initial_setup_steps(instance_name: str, instance_path: str, bare_linux_i
         StepError: If any step in the process fails.
     """
 
-    # Execute 'terminate'' as a way to see if that instance already exists
+    # Execute 'terminate' as a way to see if that instance already exists
     result = wsl_runner_exec_process("wsl", ["--terminate", instance_name], True, 0)
     if result is not None:
         status, ext_status, log_lines = result  # Unpack the tuple
@@ -2044,7 +2043,7 @@ def run_initial_setup_steps(instance_name: str, instance_path: str, bare_linux_i
 def run_pre_prerequisites_local_steps(instance_path: str, bare_linux_image_path: str,
                                       ubuntu_url: str, proxy_server: str, new_line: bool = False):
     """
-    Prepares the environment by verifying directories and downloading necessary resources.
+    Prepares the environment by verifying directories and downloading the necessary resources.
 
     Args:
         instance_path (str): Directory path for WSL instance data.
@@ -2060,7 +2059,7 @@ def run_pre_prerequisites_local_steps(instance_path: str, bare_linux_image_path:
     icon_file_name, icon_url = wsl_runner_get_resource_tuple_by_name("SDK Icon")
 
     steps_commands = [
-        # Ensure necessary directories exist
+        # Ensure the necessary directories exist
         ("Verifying destination paths", wsl_runner_ensure_directory_exists,
          [(bare_linux_image_path, instance_path)]),
 
@@ -2090,9 +2089,9 @@ def wsl_runner_check_installed(print_version: bool = False, wsl_major_required: 
     Args:
         print_version (bool): Whether to print the version details.
         wsl_major_required (int): Required major version of WSL.
-    
+
     Returns:
-        int: 0 if the required WSL version is installed, 1 otherwise.
+        int: zero if the required WSL version is installed, 1 otherwise.
     """
     # ANSI color codes
     yellow = "\033[33m"
@@ -2193,7 +2192,7 @@ def wsl_runner_main() -> int:
     parser.add_argument("-ver", "--version", action="store_true", help="Display version information.")
     args = parser.parse_args()
 
-    # Show brief version and exit
+    # Show a brief version and exit
     if args.version:
         print(f"{IMCV2_SCRIPT_NAME} v{IMCV2_SCRIPT_VERSION}\n{IMCV2_SCRIPT_DESCRIPTION}.")
         return 0
@@ -2241,7 +2240,7 @@ def wsl_runner_main() -> int:
             wsl_runner_print_status(TextType.BOTH, "Basic system utilities are missing", True, InfoType.ERROR)
             return 1
 
-        # Looks like 'wsl.exe' doesn't like to be executed from non-physical drivers
+        # It looks like 'wsl.exe' doesn't like to be executed from non-physical drivers
         wsl_runner_set_home_drive()
 
         # Make Windows Terminal as the default terminal
@@ -2250,7 +2249,7 @@ def wsl_runner_main() -> int:
         # If we got the debug flags to show everything and be sure to disable hiding and force new line on everything.
         hidden = bool(args.hidden)  # True if args.hidden is truthy, otherwise False
         new_line = not hidden  # Opposite of hidden
-        spinner_disabled = not hidden  # If not hidden then no spinner
+        spinner_disabled = not hidden  # If not hidden, then no spinner
 
         # WSL version 2 must be installed first, make sure we have it.
         if wsl_runner_check_installed((not hidden), 2) != 0:
@@ -2296,7 +2295,7 @@ def wsl_runner_main() -> int:
 
             step_function()
 
-        # Silently attempt to map drive letter
+        # Silently attempt to map a drive letter
         wsl_runner_map_instance(IMCV2_WSL_DEFAULT_DRIVE_LETTER, instance_name, False)
 
         # Start WSL instance, setup will continue for there.
