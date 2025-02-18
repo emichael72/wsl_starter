@@ -87,13 +87,13 @@ runner_launch() {
 		# Run the command with converted arguments
 		(
 			nohup "$command" "${converted_args[@]}" >/dev/null 2>&1 &
-			echo $! >/tmp/topolbox_launch_pid
+			echo $! >/tmp/toolbox_launch_pid
 		) &>/dev/null
 	else
 		# Run the command as usual
 		(
 			nohup "$command" "$@" >/dev/null 2>&1 &
-			echo $! >/tmp/topolbox_launch_pid
+			echo $! >/tmp/toolbox_launch_pid
 		) &>/dev/null
 	fi
 
