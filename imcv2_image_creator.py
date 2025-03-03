@@ -67,8 +67,8 @@ IMCV2_WSL_DEFAULT_BASE_PATH = os.path.join(os.environ["USERPROFILE"], "IMCV2_SDK
 IMCV2_WSL_DEFAULT_INTEL_PROXY = "http://proxy-dmz.intel.com:911"
 IMCV2_WSL_DEFAULT_LINUX_IMAGE_PATH = "Bare"
 IMCV2_WSL_DEFAULT_SDK_INSTANCES_PATH = "Instances"
-IMCV2_WSL_DEFAULT_UBUNTU_URL = ("https://ubit-artifactory-il.intel.com/artifactory/imcv2-sdk-il-local/base_image/"
-                                "ubuntu-base-24.04.1-base-amd64.tar.gz")
+IMCV2_WSL_DEFAULT_UBUNTU_URL = ("https://cdimage.ubuntu.com/ubuntu-base/releases/24.04.1/release/"
+                                "ubuntu-base-24.04.2-base-amd64.tar.gz")
 IMCV2_WSL_DEFAULT_RESOURCES_URL = "https://raw.githubusercontent.com/emichael72/wsl_starter/main/resources"
 IMCV2_WSL_DEFAULT_PASSWORD = "intel@1234"
 IMCV2_WSL_DEFAULT_MIN_FREE_SPACE = 10 * (1024 ** 3)  # Minimum 10 Gigs of free disk space
