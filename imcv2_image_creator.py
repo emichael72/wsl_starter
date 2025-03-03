@@ -2199,9 +2199,9 @@ def wsl_runner_main() -> int:
 
     # Must not be administrators
     if wsl_runner_is_admin() == 0:
-        print("Error: This installer is not intended to be executed with Administrator privileges.\n"
+        print("Warnning: This installer is not intended to be executed with Administrator privileges.\n"
               "Please open a new 'Windows Terminal' as a regular user and try again.")
-        return 1
+        # return 1
 
     if not args.name:
         print("Error: Instance name argument (-n) is mandatory.")
